@@ -23,6 +23,19 @@
 
 ---
 
+## 🟢 Implemented Baseline in Fork ([rezon99/BlotChain](https://github.com/rezon99/BlotChain))
+
+Prior to ETHOnline 2026, the base BlotChain spatial visualizer fork included:
+
+- **2D SVG Spatial Graph Visualizer:** Interactive graph canvas with drag-and-drop physics, node selection, particle flow animations, category filtering, and responsive SVG auto-resizing.
+- **3D Three.js WebGL Dashboard:** 3D force-directed node graph with animated flow particles, orbit camera controls, glowing threat vector materials, and dynamic lighting.
+- **WebXR VR Viewport Mode:** Immersive VR mode for spatial node graph inspection and headset orientation tracking.
+- **Real-Time CoinGecko Market Polling:** Live market data polling for Crypto assets and NFT collections with customizable refresh intervals and local storage state persistence.
+- **Interactive Analytics & Comparisons:** Side-by-side node comparison drawer (price, liquidity, volume, 24h/7d change), sparkline trend charts, and interactive cascade click feedback.
+- **Canvas State Export:** Export full network topology to high-resolution PNG images and JSON payloads.
+
+---
+
 ## 🚀 Getting Started & Setup Instructions
 
 ### Prerequisites
