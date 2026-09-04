@@ -1,0 +1,6 @@
+{
+  "name": "BlotChain",
+  "description": "Real-time cryptocurrency liquidity dashboard and visual MEV & intent security suite with 2D, 3D, and VR visualization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
