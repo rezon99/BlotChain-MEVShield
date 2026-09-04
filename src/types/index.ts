@@ -49,3 +49,5 @@ export interface AnimationSettings {
 }
 
 export type DashboardMode = 'crypto' | 'nft';
+
+export * from './mev';
