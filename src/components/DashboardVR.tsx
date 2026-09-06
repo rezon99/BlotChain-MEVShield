@@ -18,13 +18,17 @@ import { ErrorDisplay } from './ErrorDisplay';
 interface DashboardVRProps {
   mode: DashboardMode;
   onModeSwitch: (mode: DashboardMode) => void;
-  onViewModeSwitch: (viewMode: '2d' | '3d' | 'vr') => void;
+  onViewModeSwitch: (viewMode: '2d' | '3d' | 'vr' | 'threat3d') => void;
+  onOpenGuide?: () => void;
+  onStartTour?: () => void;
 }
 
 export const DashboardVR: React.FC<DashboardVRProps> = ({
   mode,
   onModeSwitch,
-  onViewModeSwitch
+  onViewModeSwitch,
+  onOpenGuide,
+  onStartTour
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -661,6 +665,8 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
         onClearSelection={clearSelection}
         viewMode="vr"
         onViewModeSwitch={onViewModeSwitch}
+        onOpenGuide={onOpenGuide}
+        onStartTour={onStartTour}
       />
 
       <div

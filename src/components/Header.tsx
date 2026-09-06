@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutGrid, Settings as SettingsIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { LayoutGrid, Settings as SettingsIcon, ChevronDown, ChevronUp, BookOpen, Sparkles } from 'lucide-react';
 import { DashboardMode } from '../types';
 
 interface HeaderProps {
@@ -9,8 +9,11 @@ interface HeaderProps {
   onOpenSettings: () => void;
   selectedCount: number;
   onClearSelection: () => void;
-  viewMode?: '2d' | '3d' | 'vr';
-  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
+  viewMode?: '2d' | '3d' | 'vr' | 'threat3d';
+  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr' | 'threat3d') => void;
+  onOpenGuide?: () => void;
+  onStartTour?: () => void;
+  defaultCollapsed?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -19,9 +22,12 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   selectedCount,
   onClearSelection,
   viewMode = '2d',
-  onViewModeSwitch
+  onViewModeSwitch,
+  onOpenGuide,
+  onStartTour,
+  defaultCollapsed = false
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   if (isCollapsed) {
     return (
@@ -32,16 +38,18 @@ export const Header: React.FC<HeaderProps> = React.memo(({
 
           {onViewModeSwitch && (
             <div className="flex bg-slate-800/90 p-0.5 rounded-lg border border-slate-700/60 text-[10px] sm:text-xs font-bold gap-0.5 ml-1">
-              {(['2d', '3d', 'vr'] as const).map(vm => (
+              {(['2d', '3d', 'vr', 'threat3d'] as const).map(vm => (
                 <button
                   key={vm}
                   onClick={() => onViewModeSwitch(vm)}
                   className={`px-2 py-0.5 rounded uppercase transition-all ${
-                    viewMode === vm ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'
+                    viewMode === vm
+                      ? vm === 'threat3d' ? 'bg-red-600 text-white shadow' : 'bg-indigo-600 text-white shadow'
+                      : 'text-gray-400 hover:text-white'
                   }`}
-                  title={`Switch to ${vm.toUpperCase()} view`}
+                  title={`Switch to ${vm === 'threat3d' ? 'Threat 3D' : vm.toUpperCase()} view`}
                 >
-                  {vm}
+                  {vm === 'threat3d' ? 'THREAT 3D' : vm}
                 </button>
               ))}
             </div>
@@ -58,6 +66,27 @@ export const Header: React.FC<HeaderProps> = React.memo(({
         </div>
 
         <div className="flex items-center gap-2 pointer-events-auto">
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="flex items-center gap-1 px-2.5 py-1 bg-slate-900/85 hover:bg-slate-800 text-blue-400 hover:text-blue-300 rounded-full border border-slate-700/70 backdrop-blur-md transition-colors shadow-md text-xs font-medium"
+              title="Guide & Documentation"
+            >
+              <BookOpen size={14} />
+              <span className="hidden sm:inline">Guide</span>
+            </button>
+          )}
+
+          {onStartTour && (
+            <button
+              onClick={onStartTour}
+              className="p-1.5 bg-slate-900/85 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 rounded-full border border-slate-700/70 backdrop-blur-md transition-colors shadow-md"
+              title="Start Onboarding Tour"
+            >
+              <Sparkles size={16} />
+            </button>
+          )}
+
           {selectedCount > 0 && (
             <button
               onClick={onClearSelection}
@@ -95,7 +124,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
-          {/* View Mode (2D / 3D / VR) Switcher */}
+          {/* View Mode (2D / 3D / VR / THREAT 3D) Switcher */}
           {onViewModeSwitch && (
             <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">
               <button
@@ -125,11 +154,43 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 <span className="text-[10px] bg-slate-900/60 text-indigo-300 px-1 py-0.5 rounded">VR</span>
                 VR SPACE
               </button>
+              {/* Threat 3D right next to VR */}
+              <button
+                onClick={() => onViewModeSwitch('threat3d')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                  viewMode === 'threat3d' ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'text-red-400 hover:text-red-200 hover:bg-slate-800'
+                }`}
+              >
+                <span className="text-[10px] bg-red-950/80 border border-red-500/40 text-red-300 px-1 py-0.5 rounded font-mono">MEV</span>
+                THREAT 3D
+              </button>
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-auto">
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 rounded-lg border border-slate-700 text-xs font-semibold transition-colors"
+              title="Open User Guide"
+            >
+              <BookOpen size={16} />
+              <span>User Guide</span>
+            </button>
+          )}
+
+          {onStartTour && (
+            <button
+              onClick={onStartTour}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 rounded-lg border border-slate-700 text-xs font-semibold transition-colors"
+              title="Onboarding Tour"
+            >
+              <Sparkles size={16} />
+              <span>Tour</span>
+            </button>
+          )}
+
           {selectedCount > 0 && (
             <button
               onClick={onClearSelection}

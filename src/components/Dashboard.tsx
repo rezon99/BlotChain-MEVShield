@@ -19,15 +19,19 @@ import { adaptNodesToViewport, getResponsiveViewport } from '../utils/dataTransf
 interface DashboardProps {
   mode?: DashboardMode;
   onModeSwitch?: (mode: DashboardMode) => void;
-  viewMode?: '2d' | '3d' | 'vr';
-  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
+  viewMode?: '2d' | '3d' | 'vr' | 'threat3d';
+  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr' | 'threat3d') => void;
+  onOpenGuide?: () => void;
+  onStartTour?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   mode: propMode,
   onModeSwitch: propOnModeSwitch,
   viewMode = '2d',
-  onViewModeSwitch
+  onViewModeSwitch,
+  onOpenGuide,
+  onStartTour
 }) => {
   const [internalMode, setInternalMode] = useState<DashboardMode>('crypto');
   const mode = propMode ?? internalMode;
@@ -42,7 +46,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState<boolean>(true);
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState<boolean>(false);
 
   const [manualPositions, setManualPositions] = useState<Record<string, { x: number, y: number }>>(() => {
     const saved = localStorage.getItem('blotchain_positions');
@@ -392,6 +396,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onClearSelection={clearSelection}
         viewMode={viewMode}
         onViewModeSwitch={onViewModeSwitch}
+        onOpenGuide={onOpenGuide}
+        onStartTour={onStartTour}
       />
 
       <div

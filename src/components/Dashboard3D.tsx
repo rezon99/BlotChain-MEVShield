@@ -17,15 +17,19 @@ import { ErrorDisplay } from './ErrorDisplay';
 interface Dashboard3DProps {
   mode: DashboardMode;
   onModeSwitch: (mode: DashboardMode) => void;
-  viewMode?: '2d' | '3d' | 'vr';
-  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
+  viewMode?: '2d' | '3d' | 'vr' | 'threat3d';
+  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr' | 'threat3d') => void;
+  onOpenGuide?: () => void;
+  onStartTour?: () => void;
 }
 
 export const Dashboard3D: React.FC<Dashboard3DProps> = ({
   mode,
   onModeSwitch,
   viewMode = '3d',
-  onViewModeSwitch
+  onViewModeSwitch,
+  onOpenGuide,
+  onStartTour
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -638,6 +642,8 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
         onClearSelection={clearSelection}
         viewMode={viewMode}
         onViewModeSwitch={onViewModeSwitch}
+        onOpenGuide={onOpenGuide}
+        onStartTour={onStartTour}
       />
 
       <div

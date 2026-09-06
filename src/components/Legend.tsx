@@ -6,10 +6,16 @@ interface LegendProps {
   mode: DashboardMode;
   className?: string;
   isCollapsible?: boolean;
+  defaultCollapsed?: boolean;
 }
 
-export const Legend: React.FC<LegendProps> = React.memo(({ mode, className, isCollapsible = true }) => {
-  const [isCollapsed, setIsCollapsed] = useState(true);
+export const Legend: React.FC<LegendProps> = React.memo(({
+  mode,
+  className,
+  isCollapsible = true,
+  defaultCollapsed = false
+}) => {
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   return (
     <div className={className ?? "bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 transition-all"}>
