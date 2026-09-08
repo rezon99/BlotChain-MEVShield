@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState, memo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { IntentThreatPayload, ThreatNode } from '../types/mev';
-import { ChevronDown, ChevronUp, ShieldAlert, Info } from 'lucide-react';
+import { ChevronDown, ChevronUp, ShieldAlert, Info, Tag, DollarSign } from 'lucide-react';
 
 export interface ThreatVisualizer3DProps {
   payload: IntentThreatPayload | null;
@@ -97,7 +97,7 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
     backLight.position.set(-6, -2, -6);
     scene.add(backLight);
 
-    const redAccentLight = new THREE.PointLight(0xef4444, 0.8, 20);
+    const redAccentLight = new THREE.PointLight(0xFF0055, 0.8, 20);
     redAccentLight.position.set(0, -4, 2);
     scene.add(redAccentLight);
 
@@ -291,10 +291,17 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
 
     // Prepare node data
     const defaultNodes: ThreatNode[] = [
-      { id: 'node_victim', label: 'Victim Wallet', type: 'WALLET', threatColor: '#22c55e', isPulsing: false },
+      {
+        id: 'node_victim',
+        label: 'Victim Wallet',
+        type: 'WALLET',
+        threatColor: '#22c55e',
+        isPulsing: false,
+        details: { ensName: 'trader.eth', address: '0x7a83B9a5f7823e27161bCD5AcB3Fa4398188449f' }
+      },
       { id: 'node_mempool', label: 'Public Mempool', type: 'TRANSACTION', threatColor: '#eab308', isPulsing: false },
-      { id: 'node_bot', label: 'MEV Bot #0x92a', type: 'WALLET', threatColor: '#ef4444', isPulsing: true },
-      { id: 'node_pool', label: 'Uniswap V3 (ETH/USDC)', type: 'DEX_POOL', threatColor: '#f97316', isPulsing: true },
+      { id: 'node_bot', label: 'MEV Bot #0x92a', type: 'WALLET', threatColor: '#FF0055', isPulsing: true },
+      { id: 'node_pool', label: 'Uniswap V3 (ETH/USDC)', type: 'DEX_POOL', threatColor: '#f97316', isPulsing: true, details: { ensName: 'uniswap-v3-pool.eth' } },
       { id: 'node_builder', label: 'Block Builder #7', type: 'CONTRACT', threatColor: '#3b82f6', isPulsing: false },
     ];
 
@@ -310,7 +317,10 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
       const isSelected = selectedNodeId === node.id;
       const radius = node.type === 'DEX_POOL' ? 0.95 : node.type === 'WALLET' ? 0.75 : 0.65;
       const geometry = new THREE.SphereGeometry(radius, 32, 32);
-      const color = new THREE.Color(node.threatColor || '#22c55e');
+
+      // Default to #FF0055 for critical threat nodes
+      const effectiveColor = node.isPulsing ? (node.threatColor || '#FF0055') : (node.threatColor || '#22c55e');
+      const color = new THREE.Color(effectiveColor);
 
       const material = new THREE.MeshStandardMaterial({
         color,
@@ -325,7 +335,7 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
       mesh.position.set(pos.x, pos.y, pos.z);
       group.add(mesh);
 
-      // Add a subtle glowing ring around pulsing (threat) nodes
+      // Add a glowing ring around pulsing (threat) nodes
       if (node.isPulsing) {
         const ringGeo = new THREE.RingGeometry(radius * 1.35, radius * 1.5, 32);
         const ringMat = new THREE.MeshBasicMaterial({
@@ -361,7 +371,7 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
 
         const hasThreat = nodes[i].isPulsing || nodes[nextIdx].isPulsing;
         const lineMaterial = new THREE.LineBasicMaterial({
-          color: hasThreat ? 0xef4444 : 0x38bdf8,
+          color: hasThreat ? 0xFF0055 : 0x38bdf8,
           transparent: true,
           opacity: hasThreat ? 0.7 : 0.3,
           linewidth: 1
@@ -414,7 +424,13 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
             />
             {hoveredNode.node.label}
           </div>
-          <div className="text-[10px] text-slate-400 capitalize">
+          {hoveredNode.node.details?.ensName && (
+            <div className="text-[11px] text-indigo-300 font-mono font-semibold flex items-center gap-1 mt-0.5">
+              <Tag size={11} className="text-indigo-400" />
+              <span>{hoveredNode.node.details.ensName}</span>
+            </div>
+          )}
+          <div className="text-[10px] text-slate-400 capitalize mt-0.5">
             Type: {hoveredNode.node.type.toLowerCase()}
             {hoveredNode.node.isPulsing && (
               <span className="text-red-400 font-semibold ml-1.5">• High Threat</span>
@@ -458,8 +474,8 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
               <span className="text-slate-300">Medium Risk / Mempool</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-slate-300">Critical Threat (Pulsing)</span>
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#FF0055] animate-pulse" />
+              <span className="text-slate-300">Critical Threat (#FF0055)</span>
             </div>
             <div className="pt-1 border-t border-slate-800 text-[10px] text-slate-400">
               Left Click: Rotate • Scroll: Zoom • Click node to inspect
@@ -477,6 +493,16 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
           </div>
 
           <div className="text-xs text-slate-300 space-y-1.5">
+            {(payload?.ensName || payload?.userAddress) && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">ENS Target:</span>
+                <span className="font-mono font-semibold text-indigo-300 bg-indigo-950/60 border border-indigo-800 px-1.5 py-0.5 rounded text-[11px] flex items-center gap-1">
+                  <Tag size={10} className="text-indigo-400" />
+                  {payload.ensName || payload.userAddress}
+                </span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Risk Score:</span>
               <span className="font-mono font-bold text-red-400 bg-red-950/60 border border-red-900 px-1.5 py-0.5 rounded">
@@ -490,6 +516,16 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
                 {actionTaken}
               </span>
             </div>
+
+            {payload?.meta?.protectionFeeUsdc !== undefined && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Arc USDC Settlement:</span>
+                <span className="text-sky-300 font-mono font-semibold bg-sky-950/40 border border-sky-800/60 px-1.5 py-0.5 rounded text-[11px] flex items-center gap-0.5">
+                  <DollarSign size={10} className="text-sky-400" />
+                  {payload.meta.protectionFeeUsdc.toFixed(2)} USDC
+                </span>
+              </div>
+            )}
 
             {detectedThreats.length > 0 && (
               <div className="mt-2 pt-2 border-t border-slate-800">
