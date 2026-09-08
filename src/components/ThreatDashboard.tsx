@@ -10,7 +10,9 @@ import {
   ChevronDown,
   X,
   Zap,
-  Info
+  Info,
+  Tag,
+  DollarSign
 } from 'lucide-react';
 
 interface ThreatDashboardProps {
@@ -25,16 +27,20 @@ interface ThreatDashboardProps {
 // Preset Attack Scenarios for live demonstration and testing
 const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
   SANDWICH: {
+    timestamp: Date.now(),
+    userAddress: '0x7a83B9a5f7823e27161bCD5AcB3Fa4398188449f',
+    ensName: 'trader.eth',
     visualization: {
       nodes: [
         {
           id: 'victim_wallet',
-          label: 'Victim Wallet (0x7a...49f)',
+          label: 'Victim Wallet (trader.eth)',
           type: 'WALLET',
           threatColor: '#22c55e',
           isPulsing: false,
           details: {
             address: '0x7a83B9a5f7823e27161bCD5AcB3Fa4398188449f',
+            ensName: 'trader.eth',
             role: 'victim',
             valueEth: 18.5,
             gasPriceGwei: 28,
@@ -47,10 +53,11 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
           id: 'frontrun_tx',
           label: 'Frontrun Bot (0x92...3a1)',
           type: 'TRANSACTION',
-          threatColor: '#ef4444',
+          threatColor: '#FF0055',
           isPulsing: true,
           details: {
             address: '0x92a4E1Bcb38627bCd15eD500473a254D16a13a1',
+            ensName: 'mev-searcher.eth',
             role: 'attacker',
             gasPriceGwei: 95,
             minerBribeEth: 0.14,
@@ -66,6 +73,7 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
           isPulsing: true,
           details: {
             address: '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640',
+            ensName: 'uniswap-v3-pool.eth',
             role: 'pool',
             valueEth: 4820,
             status: 'Price Displaced (+1.84%)'
@@ -75,7 +83,7 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
           id: 'backrun_tx',
           label: 'Backrun Bot (0x92...3a1)',
           type: 'TRANSACTION',
-          threatColor: '#ef4444',
+          threatColor: '#FF0055',
           isPulsing: true,
           details: {
             address: '0x92a4E1Bcb38627bCd15eD500473a254D16a13a1',
@@ -93,6 +101,7 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
           isPulsing: false,
           details: {
             address: '0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97',
+            ensName: 'titan-builder.eth',
             role: 'searcher',
             minerBribeEth: 0.14,
             status: 'Block Proposal #20689401'
@@ -107,28 +116,33 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
         'Excessive Slippage Exploitation (>1.5%)',
         'Direct Miner Bribe via coinbase.transfer (0.14 ETH)'
       ],
-      actionTaken: 'Rerouted to Flashbots Protect + Slippage Capped at 0.3%'
+      actionTaken: 'Rerouted via Private RPC + Slippage Capped at 0.3%'
     },
     meta: {
       blockNumber: 20689401,
       timestamp: new Date().toISOString(),
       attackVector: 'SANDWICH',
       estimatedLossUsd: 1420.50,
-      targetPair: 'ETH/USDC 0.05%'
+      targetPair: 'ETH/USDC 0.05%',
+      protectionFeeUsdc: 0.15
     }
   },
 
   FRONTRUN: {
+    timestamp: Date.now(),
+    userAddress: '0x33b8aD360e229fA265E98B4B8B67D3a10F4Ac91',
+    ensName: 'swapper.eth',
     visualization: {
       nodes: [
         {
           id: 'target_intent',
-          label: 'User Intent (0x33...c91)',
+          label: 'User Intent (swapper.eth)',
           type: 'WALLET',
           threatColor: '#22c55e',
           isPulsing: false,
           details: {
             address: '0x33b8aD360e229fA265E98B4B8B67D3a10F4Ac91',
+            ensName: 'swapper.eth',
             role: 'victim',
             valueEth: 45.0,
             gasPriceGwei: 32,
@@ -140,10 +154,11 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
           id: 'priority_gas_bid',
           label: 'Searcher PGA Bot (0x1f...520)',
           type: 'TRANSACTION',
-          threatColor: '#ef4444',
+          threatColor: '#FF0055',
           isPulsing: true,
           details: {
             address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+            ensName: 'pga-bot.eth',
             role: 'attacker',
             gasPriceGwei: 180,
             minerBribeEth: 0.35,
@@ -169,6 +184,7 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
           threatColor: '#38bdf8',
           isPulsing: false,
           details: {
+            ensName: 'blotchain-shield.eth',
             role: 'searcher',
             status: 'Encrypted Mempool Activated'
           }
@@ -188,21 +204,26 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
       timestamp: new Date().toISOString(),
       attackVector: 'FRONTRUN',
       estimatedLossUsd: 890.00,
-      targetPair: 'P2P Gossip'
+      targetPair: 'P2P Gossip',
+      protectionFeeUsdc: 0.20
     }
   },
 
   JIT_LIQUIDITY: {
+    timestamp: Date.now(),
+    userAddress: '0x55d398326f99059fF775485246999027B3197955',
+    ensName: 'whale-trader.eth',
     visualization: {
       nodes: [
         {
           id: 'large_trader',
-          label: 'Whale Trader (0x55...81b)',
+          label: 'Whale Trader (whale-trader.eth)',
           type: 'WALLET',
           threatColor: '#22c55e',
           isPulsing: false,
           details: {
             address: '0x55d398326f99059fF775485246999027B3197955',
+            ensName: 'whale-trader.eth',
             role: 'victim',
             valueEth: 120.0,
             intentType: 'LARGE_AMM_SWAP',
@@ -237,7 +258,7 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
           id: 'jit_burn',
           label: 'JIT LP Burn & Repay',
           type: 'TRANSACTION',
-          threatColor: '#ef4444',
+          threatColor: '#FF0055',
           isPulsing: true,
           details: {
             role: 'attacker',
@@ -260,21 +281,26 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
       timestamp: new Date().toISOString(),
       attackVector: 'JIT_LIQUIDITY',
       estimatedLossUsd: 2140.00,
-      targetPair: 'Curve / Uniswap'
+      targetPair: 'Curve / Uniswap',
+      protectionFeeUsdc: 0.25
     }
   },
 
   SLIPPAGE: {
+    timestamp: Date.now(),
+    userAddress: '0x12c8b09320857E4e9b8B6a78fbc383610998c',
+    ensName: 'retail-user.eth',
     visualization: {
       nodes: [
         {
           id: 'retail_user',
-          label: 'Retail Swapper (0x12...98c)',
+          label: 'Retail Swapper (retail-user.eth)',
           type: 'WALLET',
           threatColor: '#22c55e',
           isPulsing: false,
           details: {
             address: '0x12c8b09320857E4e9b8B6a78fbc383610998c',
+            ensName: 'retail-user.eth',
             role: 'victim',
             valueEth: 3.2,
             slippageTolerance: 5.0,
@@ -286,7 +312,7 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
           id: 'toxic_drain',
           label: 'Arbitrage Bot #704',
           type: 'TRANSACTION',
-          threatColor: '#ef4444',
+          threatColor: '#FF0055',
           isPulsing: true,
           details: {
             role: 'attacker',
@@ -320,21 +346,26 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
       timestamp: new Date().toISOString(),
       attackVector: 'SLIPPAGE_EXPLOIT',
       estimatedLossUsd: 490.00,
-      targetPair: 'DEGEN/WETH'
+      targetPair: 'DEGEN/WETH',
+      protectionFeeUsdc: 0.10
     }
   },
 
   NORMAL: {
+    timestamp: Date.now(),
+    userAddress: '0x4408b09320857E4e9b8B6a78fbc38361099a2',
+    ensName: 'safe-user.eth',
     visualization: {
       nodes: [
         {
           id: 'safe_wallet',
-          label: 'Protected Wallet (0x44...9a2)',
+          label: 'Protected Wallet (safe-user.eth)',
           type: 'WALLET',
           threatColor: '#22c55e',
           isPulsing: false,
           details: {
             address: '0x4408b09320857E4e9b8B6a78fbc38361099a2',
+            ensName: 'safe-user.eth',
             role: 'victim',
             valueEth: 5.0,
             gasPriceGwei: 22,
@@ -376,7 +407,8 @@ const ATTACK_SCENARIOS: Record<ThreatAttackType, IntentThreatPayload> = {
       timestamp: new Date().toISOString(),
       attackVector: 'SAFE_FLOW',
       estimatedLossUsd: 0.00,
-      targetPair: 'USDC/USDT 0.01%'
+      targetPair: 'USDC/USDT 0.01%',
+      protectionFeeUsdc: 0.00
     }
   }
 };
@@ -650,6 +682,15 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
                   <span className="font-mono text-white uppercase">{selectedNode.type}</span>
                 </div>
 
+                {selectedNode.details?.ensName && (
+                  <div className="flex justify-between py-1 border-b border-slate-900">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <Tag size={11} className="text-indigo-400" /> ENS Name:
+                    </span>
+                    <span className="font-mono font-semibold text-indigo-300">{selectedNode.details.ensName}</span>
+                  </div>
+                )}
+
                 {selectedNode.details?.role && (
                   <div className="flex justify-between py-1 border-b border-slate-900">
                     <span className="text-slate-400">Attack Role:</span>
@@ -689,6 +730,15 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
                   <div className="flex justify-between py-1 border-b border-slate-900">
                     <span className="text-slate-400">Miner Bribe:</span>
                     <span className="font-mono text-red-400 font-bold">{selectedNode.details.minerBribeEth} ETH</span>
+                  </div>
+                )}
+
+                {activePayload.meta?.protectionFeeUsdc !== undefined && (
+                  <div className="flex justify-between py-1 border-b border-slate-900">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <DollarSign size={11} className="text-sky-400" /> Arc Protection Fee:
+                    </span>
+                    <span className="font-mono font-bold text-sky-300">{activePayload.meta.protectionFeeUsdc.toFixed(2)} USDC</span>
                   </div>
                 )}
 
