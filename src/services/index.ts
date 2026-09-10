@@ -8,3 +8,4 @@ export * from './ens';
 export * from './uniswap';
 export * from './arcUsdc';
 export * from './coinGeckoApi';
+export * from './partnerBackend';
