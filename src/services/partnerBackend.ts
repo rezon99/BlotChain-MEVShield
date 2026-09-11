@@ -250,8 +250,8 @@ export function getLocalSimulatedPayload(userAddress?: string): IntentThreatPayl
 
 /**
  * Executes 3-tier failover chain for risk evaluation:
- *   1. Primary: Partner backend (`/analyze-risk` or `/swap/analyze`)
- *   2. Secondary: Deployed cloud backend (`/analyze-risk` or `/swap/analyze`)
+ *   1. Primary: Partner backend (`/swap/analyze` or `/api/analyze`)
+ *   2. Secondary: Deployed cloud backend (`/swap/analyze` or `/api/analyze`)
  *   3. Tertiary: Local client simulation
  */
 export async function getMevRiskData(payload: Record<string, unknown>): Promise<unknown> {
@@ -265,11 +265,18 @@ export async function getMevRiskData(payload: Record<string, unknown>): Promise<
   // 1. First attempt: Primary Partner Backend (The Graph + v4 Hook)
   if (partnerUrl) {
     try {
-      const res = await fetch(`${partnerUrl}/analyze-risk`, {
+      let res = await fetch(`${partnerUrl}/swap/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        res = await fetch(`${partnerUrl}/api/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
       if (res.ok) return await res.json();
     } catch (e) {
       console.warn('Partner backend failed, switching to secondary cloud backend', e);
@@ -279,11 +286,18 @@ export async function getMevRiskData(payload: Record<string, unknown>): Promise<
   // 2. Second attempt: Deployed Cloud Backend
   if (cloudUrl) {
     try {
-      const res = await fetch(`${cloudUrl}/analyze-risk`, {
+      let res = await fetch(`${cloudUrl}/swap/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        res = await fetch(`${cloudUrl}/api/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
       if (res.ok) return await res.json();
     } catch (e) {
       console.warn('Secondary cloud backend failed, using local client simulation', e);
