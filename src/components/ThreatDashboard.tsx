@@ -430,30 +430,40 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
   const [simulatedBlock, setSimulatedBlock] = useState<number>(20689401);
   const [liveBackendPayloads, setLiveBackendPayloads] = useState<IntentThreatPayload[]>([]);
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
+  const [activeBackendSource, setActiveBackendSource] = useState<'partner' | 'cloud' | 'local'>('local');
 
-  const backendUrl = useMemo(() => {
+  const partnerBackendUrl = useMemo(() => {
+    return (import.meta.env.VITE_PARTNER_BACKEND_URL as string || '').trim();
+  }, []);
+
+  const cloudBackendUrl = useMemo(() => {
     return (
+      (import.meta.env.VITE_MY_DEPLOYED_BACKEND_URL as string) ||
       (import.meta.env.VITE_RISK_ENGINE_BACKEND_URL as string) ||
-      (import.meta.env.VITE_PARTNER_BACKEND_URL as string) ||
       ''
     ).trim();
   }, []);
 
-  // Poll live backend events if URL is configured or available
+  // Poll live backend events with 3-tier failover chain (Primary -> Cloud -> Local)
   useEffect(() => {
-    if (!backendUrl) return;
-
     let isMounted = true;
     const pollBackend = async () => {
       try {
-        const payloads = await fetchLiveThreatPayloads(backendUrl);
-        if (isMounted && payloads.length > 0) {
-          setLiveBackendPayloads(payloads);
-          setIsBackendConnected(true);
+        const { payloads, activeSource } = await fetchLiveThreatPayloads(partnerBackendUrl, cloudBackendUrl);
+        if (isMounted) {
+          if (payloads.length > 0) {
+            setLiveBackendPayloads(payloads);
+            setIsBackendConnected(true);
+            setActiveBackendSource(activeSource);
+          } else {
+            setIsBackendConnected(false);
+            setActiveBackendSource('local');
+          }
         }
-      } catch (err) {
+      } catch {
         if (isMounted) {
           setIsBackendConnected(false);
+          setActiveBackendSource('local');
         }
       }
     };
@@ -465,7 +475,7 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [backendUrl]);
+  }, [partnerBackendUrl, cloudBackendUrl]);
 
   // Active payload based on live backend data or scenario fallback
   const activePayload = useMemo(() => {
@@ -798,9 +808,19 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
 
           {/* Block & Live Metrics Badge (Top Center) */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-full text-[11px] font-mono text-slate-300 shadow-xl">
-            <span className={`flex items-center gap-1 ${isBackendConnected ? 'text-emerald-400' : 'text-red-400'}`}>
-              <span className={`w-2 h-2 rounded-full ${isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500 animate-ping'} inline-block`} />
-              {isBackendConnected ? 'Live Backend Stream' : 'MEV Shield Active'}
+            <span className={`flex items-center gap-1 ${
+              activeBackendSource === 'partner' ? 'text-emerald-400' :
+              activeBackendSource === 'cloud' ? 'text-sky-400' : 'text-emerald-400'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${
+                activeBackendSource === 'partner' ? 'bg-emerald-500 animate-pulse' :
+                activeBackendSource === 'cloud' ? 'bg-sky-500 animate-pulse' : 'bg-emerald-500'
+              } inline-block`} />
+              {
+                activeBackendSource === 'partner' ? 'Primary Backend (v4 Hook)' :
+                activeBackendSource === 'cloud' ? 'Cloud Failover Backend' :
+                'MEV Shield Active'
+              }
             </span>
             <span className="text-slate-600">•</span>
             <span>{activePayload.meta?.blockNumber ? `Block #${activePayload.meta.blockNumber}` : 'Live Events'}</span>

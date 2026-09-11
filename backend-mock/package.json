@@ -1,7 +1,7 @@
 {
-  "name": "mevshield-risk-engine-backend",
+  "name": "mevshield-risk-engine-mock",
   "version": "1.0.0",
-  "description": "BlotChain MEVShield Risk Engine & Off-Chain Policy Signer Backend",
+  "description": "BlotChain MEVShield Secondary Cloud Fallback Risk Engine Backend Service",
   "main": "server.js",
   "type": "module",
   "scripts": {

@@ -161,7 +161,7 @@ app.get('/health', (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({
-    name: 'BlotChain-MEVShield Risk Engine API',
+    name: 'BlotChain-MEVShield Secondary Cloud Fallback Risk Engine API',
     status: 'online',
     endpoints: [
       'POST /swap/analyze',
@@ -230,5 +230,5 @@ app.get('/api/swaps/events', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🛡️ MEVShield Risk Engine Backend running on port ${PORT}`);
+  console.log(`🛡️ MEVShield Cloud Fallback Risk Engine Backend running on port ${PORT}`);
 });

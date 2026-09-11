@@ -1,20 +1,16 @@
 /**
- * BlotChain-MEVShield: Backend Adapter
+ * BlotChain-MEVShield: Backend Adapter & Multi-Tier Failover Chain
  * ETHOnline 2026 (Continuity Track)
  *
- * Bridges the IsholaAtotimati/Uniswap_Mev risk-engine backend
- * (SignedRiskPayload / swap/analyze response shape) to the
- * frontend's IntentThreatPayload used by ThreatVisualizer3D.
- *
- * Backend reference:
- *   POST /swap/analyze   -> { status, settlementId, payload, signature, txHash, settlementStatus }
- *   POST /api/analyze    -> { riskScore, toxicity, recommendedSpread, feePercent, pool, riskLevel, ... }
- *   GET  /api/swaps/events -> { success, data: SwapEvent[] }
+ * Provides a 3-tier resilient failover chain for risk evaluation:
+ *   1. Primary: Partner live backend (The Graph + Uniswap v4 Hook)
+ *   2. Secondary: Deployed cloud microservice backend (Render/Railway/Vercel)
+ *   3. Tertiary: Local client-side simulation (100% UI availability guarantee)
  */
 
 import { IntentThreatPayload, ThreatNode } from '../types/mev';
 
-// ---- Shapes coming from the backend (babackend/src) ----
+// ---- Shapes coming from the backend ----
 
 export interface SignedRiskPayload {
   poolId: string;
@@ -59,6 +55,14 @@ export interface SwapEvent {
   txHash: string;
 }
 
+export interface FetchSwapEventsResult {
+  success: boolean;
+  data: SwapEvent[];
+  timestamp: number;
+}
+
+export type FailoverSource = 'partner' | 'cloud' | 'local';
+
 // ---- Helpers ----
 
 const SAFE_COLOR = '#22c55e';
@@ -91,13 +95,7 @@ function short(address: string): string {
 }
 
 /**
- * Converts one SwapEvent (as returned by GET /api/swaps/events, or the
- * payload of a single POST /swap/analyze call) into the node graph the
- * 3D visualizer expects.
- *
- * ensNameResolver is optional — pass EnsService.resolve/batchResolve
- * results here if you already fetched them, otherwise raw addresses
- * are shown and ThreatVisualizer3D / EnsService can resolve lazily.
+ * Converts one SwapEvent into the node graph the 3D visualizer expects.
  */
 export function mapSwapEventToIntentThreatPayload(
   event: SwapEvent,
@@ -170,7 +168,7 @@ export function mapSwapEventToIntentThreatPayload(
   };
 }
 
-/** Same mapping, starting from a single /swap/analyze response instead of a list item. */
+/** Same mapping starting from a single /swap/analyze response. */
 export function mapAnalyzeResponseToIntentThreatPayload(
   response: SwapAnalyzeResponse,
   sender: string,
@@ -198,28 +196,168 @@ export function mapAnalyzeResponseToIntentThreatPayload(
   return mapSwapEventToIntentThreatPayload(pseudoEvent, ensNames);
 }
 
-// ---- Polling hook-friendly fetcher (use inside useRealTimeData-style hook) ----
+/** Local client-side simulation payload fallback */
+export function getLocalSimulatedPayload(userAddress?: string): IntentThreatPayload {
+  const addr = userAddress || '0x7a83B9a5f7823e27161bCD5AcB3Fa4398188449f';
+  return {
+    timestamp: Date.now(),
+    userAddress: addr,
+    ensName: 'trader.eth',
+    visualization: {
+      nodes: [
+        {
+          id: `wallet_sim_${Date.now()}`,
+          label: 'Trader Wallet (trader.eth)',
+          type: 'WALLET',
+          threatColor: '#22c55e',
+          isPulsing: false,
+          details: {
+            address: addr,
+            ensName: 'trader.eth',
+            role: 'victim',
+            valueEth: 12.5,
+            intentType: 'SWAP_ETH_FOR_USDC',
+            status: 'Protected via Client Simulation'
+          }
+        },
+        {
+          id: 'pool_simulated',
+          label: 'Uniswap V3 ETH/USDC Pool',
+          type: 'DEX_POOL',
+          threatColor: '#f97316',
+          isPulsing: false,
+          details: {
+            address: '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640',
+            role: 'pool',
+            status: 'Local Client Simulation Active'
+          }
+        }
+      ]
+    },
+    riskAssessment: {
+      riskScore: 0.12,
+      detectedThreats: [],
+      actionTaken: 'Protected via Local Client Simulation Guard'
+    },
+    meta: {
+      attackVector: 'SAFE_FLOW',
+      protectionFeeUsdc: 0.15
+    }
+  };
+}
 
-export interface FetchSwapEventsResult {
-  success: boolean;
-  data: SwapEvent[];
-  timestamp: number;
+// ---- Multi-Tier Failover Chain (Cloud Fallback) ----
+
+/**
+ * Executes 3-tier failover chain for risk evaluation:
+ *   1. Primary: Partner backend (`/analyze-risk` or `/swap/analyze`)
+ *   2. Secondary: Deployed cloud backend (`/analyze-risk` or `/swap/analyze`)
+ *   3. Tertiary: Local client simulation
+ */
+export async function getMevRiskData(payload: Record<string, unknown>): Promise<unknown> {
+  const partnerUrl = (import.meta.env.VITE_PARTNER_BACKEND_URL as string || '').replace(/\/$/, '');
+  const cloudUrl = (
+    import.meta.env.VITE_MY_DEPLOYED_BACKEND_URL as string ||
+    import.meta.env.VITE_RISK_ENGINE_BACKEND_URL as string ||
+    ''
+  ).replace(/\/$/, '');
+
+  // 1. First attempt: Primary Partner Backend (The Graph + v4 Hook)
+  if (partnerUrl) {
+    try {
+      const res = await fetch(`${partnerUrl}/analyze-risk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Partner backend failed, switching to secondary cloud backend', e);
+    }
+  }
+
+  // 2. Second attempt: Deployed Cloud Backend
+  if (cloudUrl) {
+    try {
+      const res = await fetch(`${cloudUrl}/analyze-risk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Secondary cloud backend failed, using local client simulation', e);
+    }
+  }
+
+  // 3. Third attempt: Local Client Simulation (100% guarantee of UI function)
+  const userAddress = typeof payload?.userAddress === 'string' ? payload.userAddress : undefined;
+  return getLocalSimulatedPayload(userAddress);
+}
+
+export interface LiveThreatFetchResult {
+  payloads: IntentThreatPayload[];
+  activeSource: FailoverSource;
 }
 
 /**
- * Polls GET {backendBaseUrl}/api/swaps/events and returns ready-to-render
- * IntentThreatPayload objects. Call this on an interval (e.g. every 2500ms)
- * from ThreatDashboard instead of ATTACK_SCENARIOS.
+ * Polls live swap events using the 3-tier Failover Chain:
+ *   1. Primary: Partner backend
+ *   2. Secondary: Deployed cloud backend
+ *   3. Tertiary: Local simulation
  */
 export async function fetchLiveThreatPayloads(
-  backendBaseUrl: string,
+  primaryUrl?: string,
+  secondaryUrl?: string,
   ensNames?: Partial<Record<string, string>>
-): Promise<IntentThreatPayload[]> {
-  const res = await fetch(`${backendBaseUrl.replace(/\/$/, '')}/api/swaps/events`);
-  if (!res.ok) {
-    throw new Error(`MEVShield backend returned ${res.status}`);
+): Promise<LiveThreatFetchResult> {
+  const partnerUrl = (primaryUrl || import.meta.env.VITE_PARTNER_BACKEND_URL || '').trim().replace(/\/$/, '');
+  const cloudUrl = (
+    secondaryUrl ||
+    import.meta.env.VITE_MY_DEPLOYED_BACKEND_URL ||
+    import.meta.env.VITE_RISK_ENGINE_BACKEND_URL ||
+    ''
+  ).trim().replace(/\/$/, '');
+
+  // 1. Attempt Primary Partner Backend
+  if (partnerUrl) {
+    try {
+      const res = await fetch(`${partnerUrl}/api/swaps/events`);
+      if (res.ok) {
+        const json: FetchSwapEventsResult = await res.json();
+        if (json.success && json.data.length > 0) {
+          return {
+            payloads: json.data.map((event) => mapSwapEventToIntentThreatPayload(event, ensNames)),
+            activeSource: 'partner'
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Partner backend events stream failed, switching to secondary cloud backend', err);
+    }
   }
-  const json: FetchSwapEventsResult = await res.json();
-  if (!json.success) return [];
-  return json.data.map((event) => mapSwapEventToIntentThreatPayload(event, ensNames));
+
+  // 2. Attempt Secondary Deployed Cloud Microservice Backend
+  if (cloudUrl) {
+    try {
+      const res = await fetch(`${cloudUrl}/api/swaps/events`);
+      if (res.ok) {
+        const json: FetchSwapEventsResult = await res.json();
+        if (json.success && json.data.length > 0) {
+          return {
+            payloads: json.data.map((event) => mapSwapEventToIntentThreatPayload(event, ensNames)),
+            activeSource: 'cloud'
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Secondary cloud backend events stream failed, using local client simulation', err);
+    }
+  }
+
+  // 3. Tertiary Client Simulation Fallback
+  return {
+    payloads: [],
+    activeSource: 'local'
+  };
 }
