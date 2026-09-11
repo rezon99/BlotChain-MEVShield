@@ -16,11 +16,14 @@ Developed for the ETHOnline 2026 Continuity Track, the application is optimized 
 
 ## ✨ Key Features
 - **Spatial 3D MEV Threat Visualizer:** Real-time rendering of DEX liquidity pools and user transaction paths using optimized Three.js meshes.
+- **Resilient 3-Tier Failover Chain (Cloud Fallback):** Multi-level backend architecture ensuring 100% UI availability during judge evaluation:
+  1. *Level 1 Primary:* Live partner backend (The Graph + Uniswap v4 Hook)
+  2. *Level 2 Secondary:* Standalone cloud fallback microservice (`/backend-mock`)
+  3. *Level 3 Tertiary:* Client-side local simulation guard
 - **Dynamic Threat Indicators:** Instant visual state transitions. Nodes automatically switch from gentle breathing green (`#22c55e`) to intense red pulsation (`#FF0055`) when a critical threat (`riskScore >= 0.7`) is detected.
 - **Minimalist Glassmorphism HUD:** Non-intrusive heads-up display overlays detailing specific attack vectors (e.g., `SANDWICH_ATTACK`), exact risk scores, and mitigation actions (`Rerouted via Private RPC`).
 - **ENSv2 Name Resolution:** Automatic resolution of hex addresses to human-readable names (`trader.eth`) across 3D nodes.
 - **IsholaAtotimati Backend Adapter:** Seamless transformation of `SignedRiskPayload` and `SwapEvent` structures from the IsholaAtotimati risk engine into 3D node graphs.
-- **Optimized Rendering Architecture:** Lifecycle management decoupled via `useRef`, native `ResizeObserver` container tracking, and `React.memo` wrapping to maintain a stable 60 FPS during high-frequency data streaming.
 
 ---
 
@@ -36,7 +39,8 @@ The project architecture is strategically aligned to maximize ROI across high-va
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS
 - **3D Graphics:** Three.js, WebGL
 - **Data Schema:** Standardized `IntentThreatPayload` for decoupled backend-frontend communication
-- **Backend Adapter:** `src/services/partnerBackend.ts` (Bridges `IsholaAtotimati/Uniswap_Mev` backend payloads)
+- **Backend Architecture:** Multi-tier failover adapter (`src/services/partnerBackend.ts`)
+- **Secondary Cloud Fallback Microservice:** Node.js / Express (`/backend-mock`)
 - **Tooling:** ESLint, Prettier, ResizeObserver API
 
 ---
@@ -48,13 +52,13 @@ BlotChain-MEVShield/
 │   ├── components/
 │   │   └── ThreatVisualizer3D.tsx  # Core Three.js spatial visualizer & HUD
 │   ├── services/
-│   │   ├── partnerBackend.ts       # IsholaAtotimati risk engine backend adapter
+│   │   ├── partnerBackend.ts       # 3-tier failover adapter & backend integration
 │   │   └── index.ts
 │   ├── types/
 │   │   └── mev.ts                  # IntentThreatPayload & node type definitions
-│   ├── hooks/                      # Real-time data synchronization hooks
 │   └── App.tsx
-├── public/
+├── backend/                        # Reserved clean directory for primary partner backend integration
+├── backend-mock/                   # Deployed secondary cloud fallback microservice
 ├── ISHOLA_ATOTIMATI_ADAPTER.md
 ├── SPECIFICATION.md
 ├── ETHONLINE_2026_SCOPE.md
@@ -91,6 +95,7 @@ npm run build
 ## 📄 Documentation & Specs
 Detailed architectural specifications and development scopes can be found in the repository root:
 - [`ISHOLA_ATOTIMATI_ADAPTER.md`](./ISHOLA_ATOTIMATI_ADAPTER.md) — Detailed documentation & interaction sequence diagram for the IsholaAtotimati backend adapter
+- [`backend-mock/README.md`](./backend-mock/README.md) — Cloud fallback microservice documentation
 - [`SPECIFICATION.md`](./SPECIFICATION.md)
 - [`ETHONLINE_2026_SCOPE.md`](./ETHONLINE_2026_SCOPE.md)
 
