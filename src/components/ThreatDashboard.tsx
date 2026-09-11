@@ -3,6 +3,8 @@ import { ThreatVisualizer3D } from './ThreatVisualizer3D';
 import { Header } from './Header';
 import { IntentThreatPayload, ThreatNode, ThreatAttackType } from '../types/mev';
 import { fetchLiveThreatPayloads } from '../services/partnerBackend';
+import { useWeb3Wallet } from '../hooks/useWeb3Wallet';
+import { Web3WalletConnect } from './Web3WalletConnect';
 import { DashboardMode } from '../types';
 import {
   Sliders,
@@ -432,6 +434,9 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
   const [activeBackendSource, setActiveBackendSource] = useState<'partner' | 'cloud' | 'local'>('local');
 
+  // Web3 MetaMask Authorization Hook - scoped specifically to MEV Threat Dashboard
+  const wallet = useWeb3Wallet();
+
   const partnerBackendUrl = useMemo(() => {
     return (import.meta.env.VITE_PARTNER_BACKEND_URL as string || '').trim();
   }, []);
@@ -477,21 +482,57 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
     };
   }, [partnerBackendUrl, cloudBackendUrl]);
 
-  // Active payload based on live backend data or scenario fallback
+  // Active payload based on live backend data or scenario fallback.
+  // When MetaMask is connected, dynamically update the victim node / target user address with the user's Web3 address.
   const activePayload = useMemo(() => {
+    let rawPayload: IntentThreatPayload;
     if (isBackendConnected && liveBackendPayloads.length > 0) {
-      return liveBackendPayloads[0];
+      rawPayload = liveBackendPayloads[0];
+    } else {
+      const base = ATTACK_SCENARIOS[currentScenario];
+      rawPayload = {
+        ...base,
+        meta: {
+          ...base.meta,
+          blockNumber: simulatedBlock,
+          timestamp: new Date().toLocaleTimeString()
+        }
+      };
     }
-    const base = ATTACK_SCENARIOS[currentScenario];
+
+    if (!wallet.isConnected || !wallet.account) {
+      return rawPayload;
+    }
+
+    // Overwrite target user address & victim node label with connected Web3 wallet
+    const connectedAccount = wallet.account;
+    const shortAcc = `${connectedAccount.substring(0, 6)}...${connectedAccount.substring(connectedAccount.length - 4)}`;
+
+    const updatedNodes = rawPayload.visualization.nodes.map(n => {
+      if (n.type === 'WALLET' || n.id === 'victim_wallet' || n.id === 'target_intent' || n.details?.role === 'victim') {
+        return {
+          ...n,
+          label: `Your Wallet (${shortAcc})`,
+          details: {
+            ...n.details,
+            address: connectedAccount,
+            ensName: n.details?.ensName || 'web3-user.eth',
+            status: 'Protected via BlotChain MEV Shield'
+          }
+        };
+      }
+      return n;
+    });
+
     return {
-      ...base,
-      meta: {
-        ...base.meta,
-        blockNumber: simulatedBlock,
-        timestamp: new Date().toLocaleTimeString()
+      ...rawPayload,
+      userAddress: connectedAccount,
+      visualization: {
+        ...rawPayload.visualization,
+        nodes: updatedNodes
       }
     };
-  }, [isBackendConnected, liveBackendPayloads, currentScenario, simulatedBlock]);
+  }, [isBackendConnected, liveBackendPayloads, currentScenario, simulatedBlock, wallet.isConnected, wallet.account]);
 
   // Auto-stream random threat updates every 6 seconds when active
   useEffect(() => {
@@ -554,8 +595,11 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
             selectedNodeId={selectedNode?.id}
           />
 
-          {/* Floating Top Controls (Guide & Tour quick access) */}
-          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex items-center gap-2">
+          {/* Floating Top Controls (Web3 MetaMask Connect, Guide & Tour quick access) */}
+          <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex flex-wrap items-center gap-2">
+            {/* MetaMask Web3 Authorization Component - Integrated exclusively into MEV Threat Dashboard */}
+            <Web3WalletConnect wallet={wallet} />
+
             {onOpenGuide && (
               <button
                 onClick={onOpenGuide}
