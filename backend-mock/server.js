@@ -2,8 +2,41 @@ import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import { Wallet, parseUnits, getAddress } from 'ethers';
 
 dotenv.config();
+
+const pkgPath = new URL('./package.json', import.meta.url);
+const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+
+const SETTLEMENT_DOMAIN_ID = Number(process.env.SETTLEMENT_DOMAIN_ID || 1);
+const DEV_KEY = '0x0000000000000000000000000000000000000000000000000000000000000001';
+
+function getSignerWallet() {
+  const envKey = process.env.MOCK_SIGNER_PRIVATE_KEY;
+  if (envKey && envKey.trim().length > 0) {
+    return { wallet: new Wallet(envKey.trim()), isDevKey: false };
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('[backend-mock] MOCK_SIGNER_PRIVATE_KEY not set — using dev key. DO NOT use in production.');
+  }
+
+  return { wallet: new Wallet(DEV_KEY), isDevKey: true };
+}
+
+function safeAddress(addr) {
+  if (!addr || typeof addr !== 'string') return '0x0000000000000000000000000000000000000000';
+  try {
+    return getAddress(addr);
+  } catch {
+    if (/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+      return getAddress(addr.toLowerCase());
+    }
+    return '0x0000000000000000000000000000000000000000';
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -140,8 +173,8 @@ function calculateRisk(amountIn, tokenIn, tokenOut) {
   };
 }
 
-// Generate a mock EIP-712 signature
-function generateSignedPayload(params) {
+// Generate a real EIP-712 signature
+async function generateSignedPayload(params) {
   const {
     sender = '0x7a83B9a5f7823e27161bCD5AcB3Fa4398188449f',
     pool = '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640',
@@ -152,31 +185,75 @@ function generateSignedPayload(params) {
   } = params;
 
   const risk = calculateRisk(amountIn, tokenIn, tokenOut);
-  const settlementId = randomTxHash();
-  const signerAddress = process.env.SIGNER_ADDRESS || '0x9876543210987654321098765432109876543210';
+  const settlementId = 'mock_settlement_' + crypto.randomBytes(8).toString('hex');
+
+  const { wallet, isDevKey } = getSignerWallet();
+
+  const recipientAddr = safeAddress(sender);
+  const poolAddr = safeAddress(pool);
 
   const payload = {
-    poolId: pool,
+    poolId: poolAddr,
     expectedLpLoss: risk.expectedLpLoss,
     expectedLeakage: risk.expectedLeakage,
     toxicityScore: risk.toxicityScore,
     recommendedSpread: risk.recommendedSpread,
     settlementToken: 'USDC',
     settlementAmount: parseFloat((0.15 + (risk.rawToxicity * 0.2)).toFixed(2)),
-    destinationDomain: 1,
-    recipient: sender,
+    destinationDomain: SETTLEMENT_DOMAIN_ID,
+    recipient: recipientAddr,
     expiry: Math.floor(Date.now() / 1000) + 3600,
     nonce: Math.floor(Math.random() * 10000),
-    signer: signerAddress
+    signer: wallet.address
   };
 
-  const signature = '0x' + crypto.randomBytes(65).toString('hex');
+  const domain = {
+    name: 'MEVShield',
+    version: '1',
+    chainId: SETTLEMENT_DOMAIN_ID
+  };
+
+  const types = {
+    SignedRiskPayload: [
+      { name: 'poolId', type: 'address' },
+      { name: 'expectedLpLoss', type: 'uint256' },
+      { name: 'expectedLeakage', type: 'uint256' },
+      { name: 'toxicityScore', type: 'uint256' },
+      { name: 'recommendedSpread', type: 'uint256' },
+      { name: 'settlementToken', type: 'string' },
+      { name: 'settlementAmount', type: 'uint256' },
+      { name: 'destinationDomain', type: 'uint32' },
+      { name: 'recipient', type: 'address' },
+      { name: 'expiry', type: 'uint256' },
+      { name: 'nonce', type: 'uint256' }
+    ]
+  };
+
+  const message = {
+    ...payload,
+    expectedLpLoss: parseUnits(payload.expectedLpLoss.toString(), 18),
+    expectedLeakage: parseUnits(payload.expectedLeakage.toString(), 18),
+    settlementAmount: parseUnits(payload.settlementAmount.toString(), 6)
+  };
+
+  let signature;
+  try {
+    signature = await wallet.signTypedData(domain, types, message);
+  } catch (err) {
+    console.error('[backend-mock] Error signing typed data:', err);
+    signature = '0x' + crypto.randomBytes(65).toString('hex');
+  }
+
+  const isProductionWithoutKey = process.env.NODE_ENV === 'production' && isDevKey;
+  const isValid = !isProductionWithoutKey;
 
   return {
     settlementId,
     payload,
     signature,
-    risk
+    signatureType: 'EIP712',
+    risk,
+    isValid
   };
 }
 
@@ -196,12 +273,12 @@ const SAMPLE_POOLS = [
   { address: '0xc2e901447f32d6759927705cc0569ad67cc50ee6', tokenIn: 'DEGEN', tokenOut: 'WETH' }
 ];
 
-function createNewSwapEvent() {
+async function createNewSwapEvent() {
   const sender = SAMPLE_WALLETS[Math.floor(Math.random() * SAMPLE_WALLETS.length)];
   const poolInfo = SAMPLE_POOLS[Math.floor(Math.random() * SAMPLE_POOLS.length)];
   const amountIn = parseFloat((Math.random() * 25 + 0.5).toFixed(2));
 
-  const signedData = generateSignedPayload({
+  const signedData = await generateSignedPayload({
     sender,
     pool: poolInfo.address,
     tokenIn: poolInfo.tokenIn,
@@ -221,11 +298,12 @@ function createNewSwapEvent() {
     signature: {
       payload: signedData.payload,
       signature: signedData.signature,
-      isValid: true
+      signatureType: signedData.signatureType,
+      isValid: signedData.isValid
     },
     status: signedData.risk.toxicityScore >= 7000 ? 'Critical Toxicity Intercepted' : 'Policy Signed & Enforced',
     timestamp: Date.now(),
-    txHash: randomTxHash()
+    txHash: 'mock_tx_' + crypto.randomBytes(16).toString('hex')
   };
 
   swapEvents.unshift(event);
@@ -236,7 +314,7 @@ function createNewSwapEvent() {
 
 // Seed initial events
 for (let i = 0; i < 5; i++) {
-  createNewSwapEvent();
+  await createNewSwapEvent();
 }
 
 // Background generator creating new swap events every 5 seconds
@@ -248,7 +326,13 @@ setInterval(() => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime(), timestamp: Date.now() });
+  res.json({
+    status: 'ok',
+    service: pkg.name,
+    version: pkg.version,
+    uptime: process.uptime(),
+    timestamp: Date.now()
+  });
 });
 
 app.get('/', (req, res) => {
@@ -265,11 +349,11 @@ app.get('/', (req, res) => {
 });
 
 // 1. POST /swap/analyze - Submits swap parameters & returns signed EIP-712 payload
-app.post('/swap/analyze', (req, res) => {
+app.post('/swap/analyze', async (req, res) => {
   try {
     const { sender, pool, tokenIn, tokenOut, amountIn, minAmountOut } = req.body || {};
 
-    const signedData = generateSignedPayload({
+    const signedData = await generateSignedPayload({
       sender,
       pool,
       tokenIn,
@@ -283,8 +367,12 @@ app.post('/swap/analyze', (req, res) => {
       settlementId: signedData.settlementId,
       payload: signedData.payload,
       signature: signedData.signature,
+      signatureType: signedData.signatureType,
       txHash: null,
-      settlementStatus: 'PENDING'
+      mockTxHash: 'mock_tx_' + crypto.randomBytes(16).toString('hex'),
+      settlementStatus: 'PENDING',
+      mock: true,
+      source: 'backend-mock'
     };
 
     res.json(response);
@@ -305,7 +393,9 @@ app.post('/api/analyze', (req, res) => {
       recommendedSpread: risk.recommendedSpread,
       feePercent: risk.rawToxicity > 0.4 ? 0.05 : 0.01,
       pool,
-      riskLevel: risk.rawToxicity >= 0.7 ? 'CRITICAL' : risk.rawToxicity >= 0.4 ? 'WARNING' : 'SAFE'
+      riskLevel: risk.rawToxicity >= 0.7 ? 'CRITICAL' : risk.rawToxicity >= 0.4 ? 'WARNING' : 'SAFE',
+      mock: true,
+      source: 'backend-mock'
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to compute risk telemetry', details: err.message });
@@ -317,6 +407,8 @@ app.get('/api/swaps/events', (req, res) => {
   res.json({
     success: true,
     data: swapEvents,
+    mock: true,
+    source: 'backend-mock',
     timestamp: Date.now()
   });
 });
