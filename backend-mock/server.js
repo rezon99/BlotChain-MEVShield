@@ -10,9 +10,7 @@ const PORT = process.env.PORT || 8080;
 
 const allowedOrigins = [
   'https://blot-chain-mev-shield.vercel.app',
-  /\.vercel\.app$/,
-  /^http:\/\/localhost(:\d+)?$/,
-  /^http:\/\/127\.0\.0\.1(:\d+)?$/
+  /\.vercel\.app$/
 ];
 app.use(cors({
   origin: (origin, cb) => {
