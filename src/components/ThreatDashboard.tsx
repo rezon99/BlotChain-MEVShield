@@ -15,8 +15,27 @@ import {
   Zap,
   Info,
   Tag,
-  DollarSign
+  DollarSign,
+  ArrowRightLeft,
+  Layers
 } from 'lucide-react';
+
+interface SwapDirectionOption {
+  id: string;
+  label: string;
+  tokenIn: string;
+  tokenOut: string;
+  poolLabel: string;
+  feeTier: string;
+}
+
+const SWAP_DIRECTIONS: SwapDirectionOption[] = [
+  { id: 'ETH_USDC', label: 'ETH ➔ USDC', tokenIn: 'ETH', tokenOut: 'USDC', poolLabel: 'Uniswap V3 ETH/USDC', feeTier: '0.05%' },
+  { id: 'USDC_ETH', label: 'USDC ➔ ETH', tokenIn: 'USDC', tokenOut: 'ETH', poolLabel: 'Uniswap V3 USDC/ETH', feeTier: '0.05%' },
+  { id: 'WETH_USDT', label: 'WETH ➔ USDT', tokenIn: 'WETH', tokenOut: 'USDT', poolLabel: 'Uniswap V3 WETH/USDT', feeTier: '0.30%' },
+  { id: 'WBTC_WETH', label: 'WBTC ➔ WETH', tokenIn: 'WBTC', tokenOut: 'WETH', poolLabel: 'Uniswap V3 WBTC/WETH', feeTier: '0.30%' },
+  { id: 'UNI_USDC', label: 'UNI ➔ USDC', tokenIn: 'UNI', tokenOut: 'USDC', poolLabel: 'Uniswap V3 UNI/USDC', feeTier: '0.30%' }
+];
 
 interface ThreatDashboardProps {
   mode: DashboardMode;
@@ -434,6 +453,10 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
   const [activeBackendSource, setActiveBackendSource] = useState<'partner' | 'cloud' | 'local'>('local');
 
+  // IsholaAtotimati / Uniswap Swap Direction Selector State (Default: ETH -> USDC)
+  const [selectedDirection, setSelectedDirection] = useState<SwapDirectionOption>(SWAP_DIRECTIONS[0]);
+  const [isDirectionMenuOpen, setIsDirectionMenuOpen] = useState<boolean>(false);
+
   // Web3 MetaMask Authorization Hook - scoped specifically to MEV Threat Dashboard
   const wallet = useWeb3Wallet();
 
@@ -483,7 +506,7 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
   }, [partnerBackendUrl, cloudBackendUrl]);
 
   // Active payload based on live backend data or scenario fallback.
-  // When MetaMask is connected, dynamically update the victim node / target user address with the user's Web3 address.
+  // Dynamically incorporates chosen Uniswap swap direction and Web3 wallet address.
   const activePayload = useMemo(() => {
     let rawPayload: IntentThreatPayload;
     if (isBackendConnected && liveBackendPayloads.length > 0) {
@@ -495,29 +518,37 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
         meta: {
           ...base.meta,
           blockNumber: simulatedBlock,
-          timestamp: new Date().toLocaleTimeString()
+          timestamp: new Date().toLocaleTimeString(),
+          targetPair: `${selectedDirection.tokenIn}/${selectedDirection.tokenOut} ${selectedDirection.feeTier}`
         }
       };
     }
 
-    if (!wallet.isConnected || !wallet.account) {
-      return rawPayload;
-    }
-
-    // Overwrite target user address & victim node label with connected Web3 wallet
-    const connectedAccount = wallet.account;
-    const shortAcc = `${connectedAccount.substring(0, 6)}...${connectedAccount.substring(connectedAccount.length - 4)}`;
+    const connectedAccount = wallet.isConnected && wallet.account ? wallet.account : null;
+    const shortAcc = connectedAccount ? `${connectedAccount.substring(0, 6)}...${connectedAccount.substring(connectedAccount.length - 4)}` : null;
 
     const updatedNodes = rawPayload.visualization.nodes.map(n => {
+      // Update victim wallet label & intent details
       if (n.type === 'WALLET' || n.id === 'victim_wallet' || n.id === 'target_intent' || n.details?.role === 'victim') {
         return {
           ...n,
-          label: `Your Wallet (${shortAcc})`,
+          label: connectedAccount ? `Your Wallet (${shortAcc})` : n.label,
           details: {
             ...n.details,
-            address: connectedAccount,
-            ensName: n.details?.ensName || 'web3-user.eth',
-            status: 'Protected via BlotChain MEV Shield'
+            address: connectedAccount || n.details?.address || '0x7a83B9a5f7823e27161bCD5AcB3Fa4398188449f',
+            intentType: `SWAP_${selectedDirection.tokenIn}_FOR_${selectedDirection.tokenOut}`,
+            status: connectedAccount ? 'Protected via BlotChain MEV Shield' : n.details?.status
+          }
+        };
+      }
+      // Update Uniswap pool node details based on selected swap direction
+      if (n.type === 'DEX_POOL' || n.id === 'dex_pool' || n.details?.role === 'pool') {
+        return {
+          ...n,
+          label: `${selectedDirection.poolLabel} ${selectedDirection.feeTier}`,
+          details: {
+            ...n.details,
+            status: `Trading Pair: ${selectedDirection.tokenIn}/${selectedDirection.tokenOut} | Risk Analyzed`
           }
         };
       }
@@ -526,13 +557,17 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
 
     return {
       ...rawPayload,
-      userAddress: connectedAccount,
+      userAddress: connectedAccount || rawPayload.userAddress,
       visualization: {
         ...rawPayload.visualization,
         nodes: updatedNodes
+      },
+      meta: {
+        ...rawPayload.meta,
+        targetPair: `${selectedDirection.tokenIn}/${selectedDirection.tokenOut} ${selectedDirection.feeTier}`
       }
     };
-  }, [isBackendConnected, liveBackendPayloads, currentScenario, simulatedBlock, wallet.isConnected, wallet.account]);
+  }, [isBackendConnected, liveBackendPayloads, currentScenario, simulatedBlock, wallet.isConnected, wallet.account, selectedDirection]);
 
   // Auto-stream random threat updates every 6 seconds when active
   useEffect(() => {
@@ -595,10 +630,64 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
             selectedNodeId={selectedNode?.id}
           />
 
-          {/* Floating Top Controls (Web3 MetaMask Connect, Guide & Tour quick access) */}
+          {/* Floating Top Controls (Web3 MetaMask Connect, Uniswap Direction Selector, Guide & Tour) */}
           <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex flex-wrap items-center gap-2">
             {/* MetaMask Web3 Authorization Component - Integrated exclusively into MEV Threat Dashboard */}
             <Web3WalletConnect wallet={wallet} />
+
+            {/* Uniswap Swap Direction Selector (IsholaAtotimati / Uniswap_Mev Risk Engine Integration) */}
+            <div className="relative">
+              <button
+                onClick={() => setIsDirectionMenuOpen(!isDirectionMenuOpen)}
+                className="flex items-center gap-2 bg-slate-900/90 hover:bg-slate-800 text-pink-300 hover:text-pink-200 border border-pink-500/50 hover:border-pink-400 px-3 py-1.5 rounded-full text-xs font-mono font-semibold shadow-lg backdrop-blur-md transition-all cursor-pointer"
+                title="Uniswap Swap Direction Selection (IsholaAtotimati Risk Engine)"
+              >
+                <ArrowRightLeft size={13} className="text-pink-400 animate-pulse" />
+                <span>Direction: <strong className="text-white font-bold">{selectedDirection.label}</strong></span>
+                <ChevronDown size={13} className="text-slate-400" />
+              </button>
+
+              {isDirectionMenuOpen && (
+                <div className="absolute left-0 mt-2 w-64 bg-slate-950/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-3 text-xs text-slate-200 z-50 animate-fadeIn space-y-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-1.5 font-bold text-pink-400">
+                      <Layers size={14} />
+                      <span>Uniswap Swap Direction</span>
+                    </div>
+                    <span className="text-[9px] bg-pink-950/90 text-pink-300 border border-pink-800 px-1.5 py-0.5 rounded font-mono">
+                      Demo 1-Pass
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    Select pair direction to analyze risk on the Uniswap_Mev risk engine:
+                  </p>
+
+                  <div className="space-y-1">
+                    {SWAP_DIRECTIONS.map((dir) => (
+                      <button
+                        key={dir.id}
+                        onClick={() => {
+                          setSelectedDirection(dir);
+                          setIsDirectionMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between p-2 rounded-xl text-left font-mono text-[11px] transition-all cursor-pointer ${
+                          selectedDirection.id === dir.id
+                            ? 'bg-pink-950/70 border border-pink-500/60 text-white font-bold shadow-md'
+                            : 'bg-slate-900/70 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
+                          <span>{dir.label}</span>
+                        </div>
+                        <span className="text-[9px] text-slate-400 font-sans">{dir.feeTier}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {onOpenGuide && (
               <button
