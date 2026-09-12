@@ -79,6 +79,7 @@ cd BlotChain-MEVShield
 ```bash
 npm install
 ```
+> **Note:** `package-lock.json` is the single lockfile source of truth for this repository.
 
 ### 3. Run Development Server
 ```bash
