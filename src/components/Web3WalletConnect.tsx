@@ -39,14 +39,14 @@ export const Web3WalletConnect: React.FC<Web3WalletConnectProps> = ({ wallet, cl
     setTimeout(() => setIsRefreshing(false), 600);
   };
 
-  const ethBalanceNum = parseFloat(wallet.balanceEth || '2.450');
+  const ethBalanceNum = parseFloat(wallet.balanceEth || '0.0000');
   const ethUsd = (ethBalanceNum * 2800).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const tokenBalances: TokenBalanceItem[] = [
     {
       symbol: 'ETH',
       name: 'Ethereum Native',
-      balance: `${wallet.balanceEth ?? '2.450'} ETH`,
+      balance: `${wallet.balanceEth ?? '0.0000'} ETH`,
       usdValue: `$${ethUsd}`,
       color: 'text-purple-400',
       iconBg: 'bg-purple-950/80 border-purple-800/60'

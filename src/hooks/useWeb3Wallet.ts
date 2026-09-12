@@ -45,7 +45,7 @@ export function useWeb3Wallet(): Web3WalletState {
       }
     } catch (err) {
       console.warn('Failed to fetch eth_getBalance:', err);
-      setBalanceEth('2.450');
+      setBalanceEth('0.0000');
     }
   }, []);
 

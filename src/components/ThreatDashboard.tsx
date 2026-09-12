@@ -2,7 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ThreatVisualizer3D } from './ThreatVisualizer3D';
 import { Header } from './Header';
 import { IntentThreatPayload, ThreatNode, ThreatAttackType } from '../types/mev';
-import { fetchLiveThreatPayloads } from '../services/partnerBackend';
+import {
+  fetchLiveThreatPayloads,
+  getMevRiskData,
+  mapAnalyzeResponseToIntentThreatPayload,
+  getLocalSimulatedPayload,
+  SwapAnalyzeResponse
+} from '../services/partnerBackend';
 import { useWeb3Wallet } from '../hooks/useWeb3Wallet';
 import { Web3WalletConnect } from './Web3WalletConnect';
 import { DashboardMode } from '../types';
@@ -452,6 +458,8 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
   const [liveBackendPayloads, setLiveBackendPayloads] = useState<IntentThreatPayload[]>([]);
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
   const [activeBackendSource, setActiveBackendSource] = useState<'partner' | 'cloud' | 'local'>('local');
+  const [analyzedPayload, setAnalyzedPayload] = useState<IntentThreatPayload | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
   // IsholaAtotimati / Uniswap Swap Direction Selector State (Default: ETH -> USDC)
   const [selectedDirection, setSelectedDirection] = useState<SwapDirectionOption>(SWAP_DIRECTIONS[0]);
@@ -505,11 +513,51 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
     };
   }, [partnerBackendUrl, cloudBackendUrl]);
 
-  // Active payload based on live backend data or scenario fallback.
+  // Reset analyzed payload when account or selected direction changes
+  useEffect(() => {
+    setAnalyzedPayload(null);
+  }, [wallet.account, selectedDirection]);
+
+  // Triggers real risk engine analysis for connected wallet
+  const handleAnalyzeSwap = useCallback(async () => {
+    if (!wallet.isConnected || !wallet.account) return;
+    setIsAnalyzing(true);
+    try {
+      const res = await getMevRiskData({
+        sender: wallet.account,
+        tokenIn: selectedDirection.tokenIn,
+        tokenOut: selectedDirection.tokenOut,
+        amountIn: 1.0,
+        chainId: 1
+      });
+
+      let parsedPayload: IntentThreatPayload;
+      if (res && typeof res === 'object' && 'payload' in res && (res as SwapAnalyzeResponse).payload) {
+        parsedPayload = mapAnalyzeResponseToIntentThreatPayload(
+          res as SwapAnalyzeResponse,
+          wallet.account,
+          `pool_${selectedDirection.id}`
+        );
+      } else if (res && typeof res === 'object' && 'visualization' in res) {
+        parsedPayload = res as IntentThreatPayload;
+      } else {
+        parsedPayload = getLocalSimulatedPayload(wallet.account);
+      }
+      setAnalyzedPayload(parsedPayload);
+    } catch (err) {
+      console.warn('Risk analysis failed:', err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [wallet.isConnected, wallet.account, selectedDirection]);
+
+  // Active payload based on real risk analysis, live backend data or scenario fallback.
   // Dynamically incorporates chosen Uniswap swap direction and Web3 wallet address.
   const activePayload = useMemo(() => {
     let rawPayload: IntentThreatPayload;
-    if (isBackendConnected && liveBackendPayloads.length > 0) {
+    if (analyzedPayload) {
+      rawPayload = analyzedPayload;
+    } else if (isBackendConnected && liveBackendPayloads.length > 0) {
       rawPayload = liveBackendPayloads[0];
     } else {
       const base = ATTACK_SCENARIOS[currentScenario];
@@ -537,7 +585,9 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
             ...n.details,
             address: connectedAccount || n.details?.address || '0x7a83B9a5f7823e27161bCD5AcB3Fa4398188449f',
             intentType: `SWAP_${selectedDirection.tokenIn}_FOR_${selectedDirection.tokenOut}`,
-            status: connectedAccount ? 'Protected via BlotChain MEV Shield' : n.details?.status
+            status: connectedAccount
+              ? (analyzedPayload ? (n.details?.status || 'Protected via BlotChain MEV Shield') : 'Wallet connected — analysis pending')
+              : n.details?.status
           }
         };
       }
@@ -567,7 +617,7 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
         targetPair: `${selectedDirection.tokenIn}/${selectedDirection.tokenOut} ${selectedDirection.feeTier}`
       }
     };
-  }, [isBackendConnected, liveBackendPayloads, currentScenario, simulatedBlock, wallet.isConnected, wallet.account, selectedDirection]);
+  }, [isBackendConnected, liveBackendPayloads, currentScenario, simulatedBlock, wallet.isConnected, wallet.account, selectedDirection, analyzedPayload]);
 
   // Auto-stream random threat updates every 6 seconds when active
   useEffect(() => {
@@ -634,6 +684,41 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
           <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex flex-wrap items-center gap-2">
             {/* MetaMask Web3 Authorization Component - Integrated exclusively into MEV Threat Dashboard */}
             <Web3WalletConnect wallet={wallet} />
+
+            {/* Real Risk Analysis Trigger Button (Visible when wallet is connected) */}
+            {wallet.isConnected && wallet.account && (
+              <button
+                onClick={handleAnalyzeSwap}
+                disabled={isAnalyzing}
+                className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-full text-xs font-mono font-bold shadow-lg border border-emerald-400/50 backdrop-blur-md transition-all cursor-pointer disabled:opacity-50"
+                title="Trigger real risk engine analysis for connected wallet"
+              >
+                <Zap size={13} className={isAnalyzing ? 'animate-spin text-amber-300' : 'animate-pulse text-emerald-300'} />
+                <span>{isAnalyzing ? 'Analyzing Swap...' : 'Analyze my swap'}</span>
+              </button>
+            )}
+
+            {/* Data Source Badge: LIVE · PARTNER (green) / LIVE · CLOUD (amber) / SIMULATED · LOCAL (gray) */}
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-bold shadow-lg backdrop-blur-md border ${
+              activeBackendSource === 'partner'
+                ? 'bg-emerald-950/90 text-emerald-400 border-emerald-500/50'
+                : activeBackendSource === 'cloud'
+                ? 'bg-amber-950/90 text-amber-400 border-amber-500/50'
+                : 'bg-slate-900/90 text-slate-400 border-slate-700/60'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${
+                activeBackendSource === 'partner'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : activeBackendSource === 'cloud'
+                  ? 'bg-amber-400 animate-pulse'
+                  : 'bg-slate-400'
+              }`} />
+              <span>
+                {activeBackendSource === 'partner' && 'LIVE · PARTNER'}
+                {activeBackendSource === 'cloud' && 'LIVE · CLOUD'}
+                {activeBackendSource === 'local' && 'SIMULATED · LOCAL'}
+              </span>
+            </div>
 
             {/* Uniswap Swap Direction Selector (IsholaAtotimati / Uniswap_Mev Risk Engine Integration) */}
             <div className="relative">
