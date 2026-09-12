@@ -1,5 +1,5 @@
 {
-  "name": "mevshield-risk-engine-mock",
+  "name": "mevshield-backend",
   "version": "1.0.0",
   "description": "BlotChain MEVShield Risk Engine Backend Service",
   "main": "server.js",
