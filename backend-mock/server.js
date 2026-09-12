@@ -12,6 +12,27 @@ const allowedOrigins = [
   'https://blot-chain-mev-shield.vercel.app',
   /\.vercel\.app$/
 ];
+
+// --- Diagnostic request logging middleware ---
+// Added to debug intermittent "SyntaxError: Expected property name or '}' in JSON at position 1"
+// errors on POST /swap/analyze and POST /api/analyze. Logs happen BEFORE express.json()
+// so we can inspect the raw request as it actually arrives (headers + raw body bytes),
+// and again AFTER parsing so we can compare the parsed body / capture parse errors.
+app.use((req, res, next) => {
+  const requestId = crypto.randomBytes(4).toString('hex');
+  req._diagRequestId = requestId;
+  req._diagStartedAt = new Date().toISOString();
+
+  console.log(
+    `[diag][${requestId}] ${req._diagStartedAt} --> ${req.method} ${req.originalUrl} ` +
+    `content-type="${req.headers['content-type'] || ''}" ` +
+    `content-length="${req.headers['content-length'] || ''}" ` +
+    `origin="${req.headers['origin'] || ''}"`
+  );
+
+  next();
+});
+
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.some(o => typeof o === 'string' ? o === origin : o.test(origin))) return cb(null, true);
@@ -19,7 +40,69 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
+
+app.use(express.json({
+  // `verify` runs with the raw request buffer BEFORE JSON.parse() is attempted,
+  // so this is the best place to see exactly what bytes arrived over the wire.
+  verify: (req, res, buf) => {
+    const requestId = req._diagRequestId || 'unknown';
+    req._diagRawBody = buf;
+
+    if (!buf || buf.length === 0) {
+      console.log(`[diag][${requestId}] raw body: <empty>`);
+      return;
+    }
+
+    const sample = buf.slice(0, 100);
+    let printable;
+    try {
+      printable = sample.toString('utf8');
+    } catch (e) {
+      printable = '<unable to decode utf8>';
+    }
+
+    console.log(
+      `[diag][${requestId}] raw body length=${buf.length} first100(utf8)="${printable}" ` +
+      `first100(hex)="${sample.toString('hex')}"`
+    );
+  }
+}));
+
+// Log the parsed body once express.json() has succeeded.
+app.use((req, res, next) => {
+  const requestId = req._diagRequestId || 'unknown';
+  if (req.headers['content-type'] && req.headers['content-type'].includes('application/json')) {
+    try {
+      console.log(`[diag][${requestId}] parsed body: ${JSON.stringify(req.body)}`);
+    } catch (e) {
+      console.log(`[diag][${requestId}] parsed body: <unserializable> ${e.message}`);
+    }
+  }
+  next();
+});
+
+// Catch JSON body-parser errors (e.g. malformed JSON) with full diagnostic context,
+// instead of letting them bubble up as a generic Express 400.
+app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) {
+    const requestId = req._diagRequestId || 'unknown';
+    const rawBody = req._diagRawBody;
+    console.error(
+      `[diag][${requestId}] JSON PARSE ERROR: ${err.message}\n` +
+      `  method=${req.method} path=${req.originalUrl}\n` +
+      `  content-type="${req.headers['content-type'] || ''}" content-length="${req.headers['content-length'] || ''}"\n` +
+      `  rawBodyLength=${rawBody ? rawBody.length : 'n/a'}\n` +
+      `  rawBody(first100 utf8)="${rawBody ? rawBody.slice(0, 100).toString('utf8') : 'n/a'}"\n` +
+      `  rawBody(first100 hex)="${rawBody ? rawBody.slice(0, 100).toString('hex') : 'n/a'}"`
+    );
+    return res.status(400).json({
+      error: 'Bad Request',
+      details: err.message,
+      requestId
+    });
+  }
+  next(err);
+});
 
 // In-memory store for swap events
 const swapEvents = [];
