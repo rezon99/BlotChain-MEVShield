@@ -939,8 +939,8 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
             </div>
           )}
 
-          {/* Block & Live Metrics Badge (Top Center) */}
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-full text-[11px] font-mono text-slate-300 shadow-xl">
+          {/* Block & Live Metrics Badge (Bottom Center) */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-full text-[11px] font-mono text-slate-300 shadow-xl">
             <span className={`flex items-center gap-1 ${
               activeBackendSource === 'partner' ? 'text-emerald-400' :
               activeBackendSource === 'cloud' ? 'text-sky-400' : 'text-emerald-400'

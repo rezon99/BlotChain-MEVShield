@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wallet, LogOut, ExternalLink, CheckCircle2, AlertTriangle, ShieldCheck, Coins, RefreshCw, Copy, Check } from 'lucide-react';
+import { Wallet, LogOut, ExternalLink, CheckCircle2, AlertTriangle, ShieldCheck, Coins, RefreshCw, Copy, Check, X } from 'lucide-react';
 import { Web3WalletState } from '../hooks/useWeb3Wallet';
 
 interface Web3WalletConnectProps {
@@ -129,16 +129,29 @@ export const Web3WalletConnect: React.FC<Web3WalletConnectProps> = ({ wallet, cl
           </button>
 
           {isOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-1.5rem)] max-h-[82vh] overflow-y-auto scrollbar-thin bg-slate-950/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-4 text-xs text-slate-200 z-50 animate-fadeIn space-y-3">
-              <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
-                <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                  <CheckCircle2 size={15} />
-                  <span>Web3 Authorized</span>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div
+                className="bg-slate-950/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-5 w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin text-xs text-slate-200 animate-fadeIn space-y-4 relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                    <CheckCircle2 size={17} />
+                    <span>Web3 Authorized Wallet</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] bg-emerald-950/90 text-emerald-300 border border-emerald-800 px-2.5 py-0.5 rounded-full font-mono font-semibold">
+                      MEV Active
+                    </span>
+                    <button
+                      onClick={() => setIsOpen(false)}
+                      className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                      title="Close"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
                 </div>
-                <span className="text-[10px] bg-emerald-950/90 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded-full font-mono font-semibold">
-                  MEV Active
-                </span>
-              </div>
 
               {/* Account Address Section */}
               <div className="space-y-1.5">
@@ -192,19 +205,19 @@ export const Web3WalletConnect: React.FC<Web3WalletConnectProps> = ({ wallet, cl
                   {tokenBalances.map((item) => (
                     <div
                       key={item.symbol}
-                      className="flex items-center justify-between p-2 rounded-xl bg-slate-900/70 hover:bg-slate-900 border border-slate-800/60 transition-colors"
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/70 hover:bg-slate-900 border border-slate-800/60 transition-colors"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-7 h-7 rounded-lg border flex items-center justify-center font-bold text-[10px] font-mono ${item.iconBg} ${item.color}`}>
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-lg border flex items-center justify-center font-bold text-[11px] font-mono ${item.iconBg} ${item.color}`}>
                           {item.symbol.slice(0, 3)}
                         </div>
                         <div>
-                          <div className="font-semibold text-slate-100 text-[11px] leading-tight">{item.symbol}</div>
-                          <div className="text-[9px] text-slate-400">{item.name}</div>
+                          <div className="font-semibold text-slate-100 text-xs leading-tight">{item.symbol}</div>
+                          <div className="text-[10px] text-slate-400">{item.name}</div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono font-bold text-white text-[11px]">{item.balance}</div>
+                        <div className="font-mono font-bold text-white text-xs">{item.balance}</div>
                         <div className="text-[10px] text-slate-400">{item.usdValue}</div>
                       </div>
                     </div>
@@ -213,19 +226,20 @@ export const Web3WalletConnect: React.FC<Web3WalletConnectProps> = ({ wallet, cl
               </div>
 
               {/* Disconnect Action */}
-              <div className="pt-2 border-t border-slate-800">
+              <div className="pt-3 border-t border-slate-800">
                 <button
                   onClick={() => {
                     wallet.disconnect();
                     setIsOpen(false);
                   }}
-                  className="w-full flex items-center justify-center gap-1.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/60 py-1.5 px-3 rounded-xl font-semibold transition-all cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/60 py-2 px-3 rounded-xl font-semibold text-xs transition-all cursor-pointer"
                 >
-                  <LogOut size={13} />
+                  <LogOut size={14} />
                   <span>Disconnect Wallet</span>
                 </button>
               </div>
             </div>
+          </div>
           )}
         </div>
       )}
