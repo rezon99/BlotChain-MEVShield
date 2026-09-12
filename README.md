@@ -17,7 +17,7 @@ Developed for the ETHOnline 2026 Continuity Track, the application is optimized 
 ## ✨ Key Features
 - **Spatial 3D MEV Threat Visualizer:** Real-time rendering of DEX liquidity pools and user transaction paths using optimized Three.js meshes.
 - **Resilient 3-Tier Failover Chain:** Multi-level backend architecture ensuring 100% UI availability during judge evaluation:
-  1. *Level 1 Default Primary:* Live risk engine backend microservice (`/backend-mock`, deployed on Railway) / Partner backend
+  1. *Level 1 Default Primary:* Live risk engine backend microservice (`/backend-mock`, deployed on Railway at `https://talented-wonder-production.up.railway.app`)
   2. *Level 2 Secondary:* Cloud microservice fallback service
   3. *Level 3 Tertiary:* Client-side local simulation guard
 - **Dynamic Threat Indicators:** Instant visual state transitions. Nodes automatically switch from gentle breathing green (`#22c55e`) to intense red pulsation (`#FF0055`) when a critical threat (`riskScore >= 0.7`) is detected.
@@ -57,7 +57,6 @@ BlotChain-MEVShield/
 │   ├── types/
 │   │   └── mev.ts                  # IntentThreatPayload & node type definitions
 │   └── App.tsx
-├── backend/                        # Reserved clean directory for partner backend integration
 ├── backend-mock/                   # Default Level 1 risk engine backend microservice (deployed on Railway)
 ├── ISHOLA_ATOTIMATI_ADAPTER.md
 ├── SPECIFICATION.md
