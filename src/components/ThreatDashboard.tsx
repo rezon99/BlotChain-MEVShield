@@ -1161,7 +1161,7 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
                 activeBackendSource === 'cloud' ? 'bg-sky-500 animate-pulse' : 'bg-emerald-500'
               } inline-block`} />
               {
-                activeBackendSource === 'partner' ? 'Primary Backend (v4 Hook)' :
+                activeBackendSource === 'partner' ? 'Primary Backend' :
                 activeBackendSource === 'cloud' ? 'Cloud Failover Backend' :
                 'MEV Shield Active'
               }
