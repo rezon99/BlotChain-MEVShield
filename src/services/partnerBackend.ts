@@ -371,7 +371,7 @@ export async function fetchLiveThreatPayloads(
 
   // 3. Tertiary Client Simulation Fallback
   return {
-    payloads: [],
+    payloads: [getLocalSimulatedPayload()],
     activeSource: 'local'
   };
 }
