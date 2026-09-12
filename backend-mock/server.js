@@ -6,10 +6,21 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 
-// Enable CORS for all origins so Vercel frontend can call this backend
-app.use(cors({ origin: '*' }));
+const allowedOrigins = [
+  'https://blot-chain-mev-shield.vercel.app',
+  /\.vercel\.app$/,
+  /^http:\/\/localhost(:\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/
+];
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.some(o => typeof o === 'string' ? o === origin : o.test(origin))) return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // In-memory store for swap events
@@ -161,7 +172,7 @@ app.get('/health', (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({
-    name: 'BlotChain-MEVShield Secondary Cloud Fallback Risk Engine API',
+    name: 'BlotChain-MEVShield Default Level 1 Risk Engine API',
     status: 'online',
     endpoints: [
       'POST /swap/analyze',
@@ -230,5 +241,5 @@ app.get('/api/swaps/events', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🛡️ MEVShield Cloud Fallback Risk Engine Backend running on port ${PORT}`);
+  console.log(`🛡️ MEVShield Risk Engine Backend running on port ${PORT}`);
 });
