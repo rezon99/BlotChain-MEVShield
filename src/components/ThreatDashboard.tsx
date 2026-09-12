@@ -932,7 +932,7 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
                 title="Open MEV Attack Simulator"
               >
                 <Sliders size={14} className="text-red-400" />
-                <span>Threat Simulator: <strong className="text-red-400">{currentScenario}</strong></span>
+               <span>Threat Simulator (simulated): <strong className="text-red-400">{currentScenario}</strong></span>
                 <ChevronUp size={14} className="text-slate-400 ml-1" />
               </button>
             ) : (
