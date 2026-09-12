@@ -9,6 +9,15 @@ import {
   getLocalSimulatedPayload,
   SwapAnalyzeResponse
 } from '../services/partnerBackend';
+import {
+  ensService,
+  arcUsdcService,
+  uniswapService,
+  flashbotsService,
+  CANONICAL_POOLS,
+  UniswapV3Pool,
+  RelayHealthStatus
+} from '../services';
 import { useWeb3Wallet } from '../hooks/useWeb3Wallet';
 import { Web3WalletConnect } from './Web3WalletConnect';
 import { DashboardMode } from '../types';
@@ -461,6 +470,11 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
   const [analyzedPayload, setAnalyzedPayload] = useState<IntentThreatPayload | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
+  // Web3 Services State (ENS, Uniswap Telemetry, Flashbots Relay Health)
+  const [resolvedEnsMap, setResolvedEnsMap] = useState<Record<string, string>>({});
+  const [poolTelemetry, setPoolTelemetry] = useState<UniswapV3Pool | null>(null);
+  const [relayHealth, setRelayHealth] = useState<RelayHealthStatus | null>(null);
+
   // IsholaAtotimati / Uniswap Swap Direction Selector State (Default: ETH -> USDC)
   const [selectedDirection, setSelectedDirection] = useState<SwapDirectionOption>(SWAP_DIRECTIONS[0]);
   const [isDirectionMenuOpen, setIsDirectionMenuOpen] = useState<boolean>(false);
@@ -517,6 +531,78 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
   useEffect(() => {
     setAnalyzedPayload(null);
   }, [wallet.account, selectedDirection]);
+
+  // Asynchronous ENS resolution for wallet addresses
+  useEffect(() => {
+    let isMounted = true;
+    const resolveAddresses = async () => {
+      const addressesToResolve: string[] = [];
+      if (wallet.account) addressesToResolve.push(wallet.account);
+
+      const scenarioNodes = ATTACK_SCENARIOS[currentScenario]?.visualization?.nodes || [];
+      scenarioNodes.forEach(n => {
+        if (n.details?.address) addressesToResolve.push(n.details.address);
+      });
+
+      for (const addr of addressesToResolve) {
+        if (!addr || resolvedEnsMap[addr.toLowerCase()]) continue;
+        try {
+          const resolved = await ensService.lookupAddress(addr);
+          if (resolved && isMounted) {
+            setResolvedEnsMap(prev => ({ ...prev, [addr.toLowerCase()]: resolved }));
+          }
+        } catch {
+          // Ignore lookup failure
+        }
+      }
+    };
+    resolveAddresses();
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallet.account, currentScenario]);
+
+  // Fetch Uniswap V3 Subgraph Pool Data & Depth Analysis
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPoolInfo = async () => {
+      try {
+        const poolAddr = CANONICAL_POOLS.USDC_ETH_005;
+        const poolData = await uniswapService.getPoolData(poolAddr);
+        if (isMounted && poolData) {
+          setPoolTelemetry(poolData);
+        }
+      } catch {
+        // Fallback pool telemetry is generated inside uniswapService
+      }
+    };
+    fetchPoolInfo();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDirection]);
+
+  // Flashbots Relay Health Check
+  useEffect(() => {
+    let isMounted = true;
+    const fetchRelayHealth = async () => {
+      try {
+        const health = await flashbotsService.checkRelayHealth();
+        if (isMounted && health) {
+          setRelayHealth(health);
+        }
+      } catch {
+        // Fallback status handled inside flashbotsService
+      }
+    };
+    fetchRelayHealth();
+    const interval = setInterval(fetchRelayHealth, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Triggers real risk engine analysis for connected wallet
   const handleAnalyzeSwap = useCallback(async () => {
@@ -575,30 +661,56 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
     const connectedAccount = wallet.isConnected && wallet.account ? wallet.account : null;
     const shortAcc = connectedAccount ? `${connectedAccount.substring(0, 6)}...${connectedAccount.substring(connectedAccount.length - 4)}` : null;
 
+    // Calculate Arc USDC protection fee based on risk score & estimated value
+    const swapValueUsd = rawPayload.meta?.estimatedLossUsd || 50000;
+    const riskScore = rawPayload.riskAssessment?.riskScore || 0.5;
+    const feeBreakdown = arcUsdcService.calculateProtectionFee(swapValueUsd, riskScore);
+
     const updatedNodes = rawPayload.visualization.nodes.map(n => {
-      // Update victim wallet label & intent details
+      // Update victim wallet label & intent details with resolved ENS
       if (n.type === 'WALLET' || n.id === 'victim_wallet' || n.id === 'target_intent' || n.details?.role === 'victim') {
+        const addr = connectedAccount || n.details?.address || '0x7a83B9a5f7823e27161bCD5AcB3Fa4398188449f';
+        const ensName = (addr && resolvedEnsMap[addr.toLowerCase()]) || n.details?.ensName || (connectedAccount ? shortAcc : 'trader.eth');
         return {
           ...n,
-          label: connectedAccount ? `Your Wallet (${shortAcc})` : n.label,
+          label: connectedAccount ? `Your Wallet (${ensName})` : `Victim Wallet (${ensName})`,
           details: {
             ...n.details,
-            address: connectedAccount || n.details?.address || '0x7a83B9a5f7823e27161bCD5AcB3Fa4398188449f',
+            address: addr,
+            ensName,
             intentType: `SWAP_${selectedDirection.tokenIn}_FOR_${selectedDirection.tokenOut}`,
+            protectionFeeUsdc: feeBreakdown.totalProtectionFeeUsdc,
             status: connectedAccount
               ? (analyzedPayload ? (n.details?.status || 'Protected via BlotChain MEV Shield') : 'Wallet connected — analysis pending')
               : n.details?.status
           }
         };
       }
-      // Update Uniswap pool node details based on selected swap direction
+      // Update Uniswap pool node details based on selected swap direction & telemetry
       if (n.type === 'DEX_POOL' || n.id === 'dex_pool' || n.details?.role === 'pool') {
+        const statusText = poolTelemetry
+          ? `TVL: $${(parseFloat(poolTelemetry.totalValueLockedUSD) / 1000000).toFixed(2)}M | Tick: ${poolTelemetry.tick} | Fee: ${selectedDirection.feeTier}`
+          : `Trading Pair: ${selectedDirection.tokenIn}/${selectedDirection.tokenOut} | Risk Analyzed`;
         return {
           ...n,
           label: `${selectedDirection.poolLabel} ${selectedDirection.feeTier}`,
           details: {
             ...n.details,
-            status: `Trading Pair: ${selectedDirection.tokenIn}/${selectedDirection.tokenOut} | Risk Analyzed`
+            status: statusText
+          }
+        };
+      }
+      // Update Contract / Block Builder / Relay node details with Flashbots relay health and Arc USDC protection fee
+      if (n.type === 'CONTRACT' || n.id === 'block_builder' || n.id === 'mev_shield') {
+        const relayStatusText = relayHealth
+          ? `Flashbots Relay: ${relayHealth.status} (${relayHealth.latencyMs}ms, ${relayHealth.activeBuildersCount} builders)`
+          : n.details?.status;
+        return {
+          ...n,
+          details: {
+            ...n.details,
+            protectionFeeUsdc: feeBreakdown.totalProtectionFeeUsdc,
+            status: relayStatusText
           }
         };
       }
@@ -608,16 +720,30 @@ export const ThreatDashboard: React.FC<ThreatDashboardProps> = ({
     return {
       ...rawPayload,
       userAddress: connectedAccount || rawPayload.userAddress,
+      ensName: connectedAccount ? resolvedEnsMap[connectedAccount.toLowerCase()] : rawPayload.ensName,
       visualization: {
         ...rawPayload.visualization,
         nodes: updatedNodes
       },
       meta: {
         ...rawPayload.meta,
-        targetPair: `${selectedDirection.tokenIn}/${selectedDirection.tokenOut} ${selectedDirection.feeTier}`
+        targetPair: `${selectedDirection.tokenIn}/${selectedDirection.tokenOut} ${selectedDirection.feeTier}`,
+        protectionFeeUsdc: feeBreakdown.totalProtectionFeeUsdc
       }
     };
-  }, [isBackendConnected, liveBackendPayloads, currentScenario, simulatedBlock, wallet.isConnected, wallet.account, selectedDirection, analyzedPayload]);
+  }, [
+    isBackendConnected,
+    liveBackendPayloads,
+    currentScenario,
+    simulatedBlock,
+    wallet.isConnected,
+    wallet.account,
+    selectedDirection,
+    analyzedPayload,
+    resolvedEnsMap,
+    poolTelemetry,
+    relayHealth
+  ]);
 
   // Auto-stream random threat updates every 6 seconds when active
   useEffect(() => {
