@@ -10,7 +10,7 @@
 ## 🚀 Overview
 BlotChain-MEVShield is a decoupled Web3 security system designed to detect, visualize, and mitigate Maximal Extractable Value (MEV) threats—specifically sandwich attacks and frontrunning—in real time. By merging complex mempool threat intelligence with an immersive Three.js / WebGL 3D spatial interface, BlotChain transforms raw, unreadable onchain logs into clear, actionable visual insights.
 
-Developed for the ETHOnline 2026 Continuity Track, the application is optimized for maximum impact through a strict Pareto bounty strategy, integrating deeply with Uniswap V3, ENSv2, and Arc (Circle).
+Developed for the ETHOnline 2026 Continuity Track, the application is optimized for maximum impact through a strict Pareto bounty strategy, integrating deeply with Uniswap V3, ENS mainnet resolver (ENSv2 integration planned), and Arc (Circle).
 
 ---
 
@@ -21,8 +21,8 @@ Developed for the ETHOnline 2026 Continuity Track, the application is optimized 
   2. *Level 2 Secondary:* Cloud microservice fallback service
   3. *Level 3 Tertiary:* Client-side local simulation guard
 - **Dynamic Threat Indicators:** Instant visual state transitions. Nodes automatically switch from gentle breathing green (`#22c55e`) to intense red pulsation (`#FF0055`) when a critical threat (`riskScore >= 0.7`) is detected.
-- **Minimalist Glassmorphism HUD:** Non-intrusive heads-up display overlays detailing specific attack vectors (e.g., `SANDWICH_ATTACK`), exact risk scores, and mitigation actions (`Rerouted via Private RPC`).
-- **ENSv2 Name Resolution:** Automatic resolution of hex addresses to human-readable names (`trader.eth`) across 3D nodes.
+- **Minimalist Glassmorphism HUD:** Non-intrusive heads-up display overlays detailing specific attack vectors (e.g., `SANDWICH_ATTACK`), exact risk scores, and mitigation actions (`Flashbots relay health monitored (rerouting planned)`).
+- **ENS Name Resolution:** Automatic resolution of hex addresses to human-readable names (`trader.eth`) across 3D nodes.
 - **IsholaAtotimati Backend Adapter:** Seamless transformation of `SignedRiskPayload` and `SwapEvent` structures from the IsholaAtotimati risk engine into 3D node graphs.
 
 ---
@@ -30,8 +30,8 @@ Developed for the ETHOnline 2026 Continuity Track, the application is optimized 
 ## 🎯 Sponsor Bounty Strategy (Pareto Optimized)
 The project architecture is strategically aligned to maximize ROI across high-value sponsor ecosystems:
 - **Uniswap Foundation (Continuity Track):** Focuses on protecting Uniswap V3 traders from sandwich attacks and route manipulation.
-- **ENS (ENSv2 Beta on Sepolia):** Enhances user experience by resolving wallet and contract addresses into human-readable ENS identities within the 3D graph.
-- **Arc / Circle:** Denominates and settles MEV protection routing fees natively in USDC on the Arc ecosystem.
+- **ENS (ENS mainnet resolver (ENSv2 integration planned)):** Enhances user experience by resolving wallet and contract addresses into human-readable ENS identities within the 3D graph.
+- **Arc / Circle:** Arc / Circle USDC settlement (planned). Denominates MEV protection routing fees in USDC.
 
 ---
 
@@ -103,3 +103,27 @@ Detailed architectural specifications and development scopes can be found in the
 
 ## 🛡️ License
 This project is licensed under the MIT License - see the [`LICENSE`](./LICENSE) file for details.
+
+---
+
+## ⚠️ Known Limitations & Roadmap
+
+**Currently simulated / partial:**
+- ENS resolution: standard ENS mainnet resolver — ENSv2 (Sepolia) integration is planned, not yet implemented
+- Arc USDC settlement: fee calculation is live; actual on-chain settlement transaction is simulated, not yet connected to a real Arc/Circle rail
+- Uniswap v4 Hook enforcement: handled by the partner's on-chain contracts (IsholaAtotimati/Uniswap_Mev), not part of this repository's execution path
+- Flashbots: relay health monitoring is live; actual transaction rerouting through the protected RPC is not yet wired into the swap-submission flow
+- Attack classification (SANDWICH, TOXIC_FLOW, etc.) is threshold-based on a single risk score, not multi-signal evidence classification
+
+**Backend failover:**
+- Tier 1 (partner backend) and Tier 2 (backend-mock) currently point to the same Railway instance — a fully independent Tier 2 deployment is planned post-hackathon
+- Local simulation (Tier 3) is fully functional as a final fallback
+
+**Trust model:**
+- Frontend EIP-712 verification uses recoverAddress() locally; this is NOT
+  on-chain verification. Trust assumes EXPECTED_SIGNER is configured correctly.
+
+**Planned next:**
+- Real on-chain Arc/Circle settlement with transaction receipt confirmation
+- Strict TypeScript types across IntentThreatPayload
+- CI/tests

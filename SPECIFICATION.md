@@ -16,7 +16,7 @@ BlotChain-MEVShield is structured as a decoupled, high-performance web3 security
 |  |   React 18 Container  | --> | Three.js / WebGL Engine |  |
 |  +-----------------------+     +-------------------------+  |
 |  +-------------------------------------------------------+  |
-|  |           HUD Overlay & ENSv2 Resolver Module         |  |
+|  |           HUD Overlay & ENS Resolver Module           |  |
 |  +-------------------------------------------------------+  |
 +-------------------------------------------------------------+
 ```
@@ -38,7 +38,7 @@ export interface ThreatNode {
 export interface RiskAssessment {
   riskScore: number;         // Float between 0.0 and 1.0
   detectedThreats: string[]; // Array of vectors (e.g., ['SANDWICH_ATTACK', 'FRONT_RUNNING'])
-  actionTaken: string;       // Mitigation routine executed (e.g., 'Rerouted via Private RPC')
+  actionTaken: string;       // Mitigation routine executed (e.g., 'Flashbots relay health monitored (rerouting planned)')
 }
 
 export interface IntentThreatPayload {

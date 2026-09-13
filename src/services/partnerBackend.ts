@@ -9,6 +9,7 @@
  */
 
 import { IntentThreatPayload, ThreatNode } from '../types/mev';
+import { verifyEip712Signature } from '../utils/verifySignature';
 
 // ---- Shapes coming from the backend ----
 
@@ -106,6 +107,10 @@ export function mapSwapEventToIntentThreatPayload(
   const isCritical = riskScore >= 0.7;
   const color = colorForRisk(riskScore);
 
+  const verification = verifyEip712Signature(riskPayload, event.signature.signature);
+  const signatureValid = verification.valid;
+  const signatureReason = verification.reason;
+
   const senderEns = ensNames?.[event.sender];
 
   const nodes: ThreatNode[] = [
@@ -140,12 +145,14 @@ export function mapSwapEventToIntentThreatPayload(
       id: `settlement_${event.settlementId}`,
       label: `Settlement (${riskPayload.settlementToken})`,
       type: 'CONTRACT',
-      threatColor: event.signature.isValid ? SAFE_COLOR : CRITICAL_COLOR,
-      isPulsing: !event.signature.isValid,
+      threatColor: signatureValid ? SAFE_COLOR : CRITICAL_COLOR,
+      isPulsing: !signatureValid,
       details: {
         address: event.settlementId,
         protectionFeeUsdc: riskPayload.settlementAmount,
-        status: event.signature.isValid ? 'Policy Verified' : 'Signature Invalid'
+        status: signatureValid ? 'Policy Verified' : 'Signature Invalid',
+        signatureValid,
+        signatureReason
       }
     }
   ];
@@ -158,9 +165,11 @@ export function mapSwapEventToIntentThreatPayload(
     riskAssessment: {
       riskScore,
       detectedThreats: detectedThreatsFromRisk(riskScore, riskPayload.recommendedSpread),
-      actionTaken: event.signature.isValid
-        ? 'Policy signed & enforced via Uniswap v4 Hook'
-        : 'Rejected — invalid attestation'
+      actionTaken: signatureValid
+        ? 'Policy signed & verified via Risk Engine'
+        : 'Rejected — invalid attestation',
+      signatureValid,
+      signatureReason
     },
     meta: {
       attackVector: isCritical ? 'SANDWICH' : undefined

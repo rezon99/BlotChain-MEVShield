@@ -404,7 +404,13 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
 
   const riskScore = activeHUD?.riskScore ?? 0;
   const detectedThreats = activeHUD?.detectedThreats ?? [];
-  const actionTaken = activeHUD?.actionTaken || 'Mitigated';
+
+  let attestationStatus = "Risk policy active — signature pending";
+  if (activeHUD?.signatureValid === true) {
+    attestationStatus = "EIP-712 signature verified";
+  } else if (activeHUD?.signatureValid === false) {
+    attestationStatus = "backend-attested only";
+  }
 
   return (
     <div className="relative w-full h-[600px] bg-[#090d16] overflow-hidden rounded-xl border border-slate-800 shadow-2xl select-none">
@@ -513,7 +519,7 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Automated Action:</span>
               <span className="text-emerald-400 font-medium bg-emerald-950/40 border border-emerald-900/60 px-1.5 py-0.5 rounded text-[11px]">
-                {actionTaken}
+                {attestationStatus}
               </span>
             </div>
 
