@@ -28,7 +28,16 @@ export function verifyEip712Signature(
       return { valid: false, recovered: null, reason: 'Missing signature string' };
     }
 
-    const expectedSignerRaw = rawPayload?.expectedSigner || rawPayload?.signer;
+    const envSigner = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_EXPECTED_SIGNER)
+      ? String(import.meta.env.VITE_EXPECTED_SIGNER).trim()
+      : undefined;
+
+    const expectedSignerRaw = envSigner || rawPayload?.expectedSigner || rawPayload?.signer;
+
+    if (!envSigner && !rawPayload?.expectedSigner && rawPayload?.signer) {
+      console.warn('[verifySignature] VITE_EXPECTED_SIGNER not set — falling back to payload.signer. This is unsafe in production.');
+    }
+
     if (!expectedSignerRaw) {
       return { valid: false, recovered: null, reason: 'Missing expectedSigner or signer field' };
     }

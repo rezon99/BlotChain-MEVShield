@@ -8,7 +8,7 @@ import { OnboardingTour } from './components/OnboardingTour';
 import { DashboardMode } from './types';
 
 function App() {
-  const [viewMode, setViewMode] = useState<'2d' | '3d' | 'vr' | 'threat3d'>('2d');
+  const [viewMode, setViewMode] = useState<'2d' | '3d' | 'vr' | 'threat3d'>('threat3d');
   const [mode, setMode] = useState<DashboardMode>('crypto');
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [isTourOpen, setIsTourOpen] = useState<boolean>(false);

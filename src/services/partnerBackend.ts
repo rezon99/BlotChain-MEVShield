@@ -107,7 +107,10 @@ export function mapSwapEventToIntentThreatPayload(
   const isCritical = riskScore >= 0.7;
   const color = colorForRisk(riskScore);
 
-  const verification = verifyEip712Signature(riskPayload, event.signature.signature);
+  const verification = verifyEip712Signature(
+    event.signature.payload ?? riskPayload,
+    event.signature.signature
+  );
   const signatureValid = verification.valid;
   const signatureReason = verification.reason;
 
@@ -167,7 +170,7 @@ export function mapSwapEventToIntentThreatPayload(
       detectedThreats: detectedThreatsFromRisk(riskScore, riskPayload.recommendedSpread),
       actionTaken: signatureValid
         ? 'Policy signed & verified via Risk Engine'
-        : 'Rejected — invalid attestation',
+        : 'Risk policy active — signature pending',
       signatureValid,
       signatureReason
     },
