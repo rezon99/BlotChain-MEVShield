@@ -90,6 +90,16 @@ export function verifyEip712Signature(
 
     const matches = recovered.toLowerCase() === expectedSigner.toLowerCase();
 
+    if (!matches) {
+      console.warn('[verifySignature] MISMATCH', {
+        recovered,
+        expectedSigner,
+        reason: 'recovered address does not match expected signer'
+      });
+    } else if (!envSigner) {
+      console.info('[verifySignature] verified against payload.signer (dev mode, VITE_EXPECTED_SIGNER unset)');
+    }
+
     return {
       valid: matches,
       recovered,

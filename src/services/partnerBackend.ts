@@ -49,7 +49,8 @@ export interface SwapEvent {
   signature: {
     payload: SignedRiskPayload;
     signature: string;
-    isValid: boolean;
+    signer?: string;
+    isValid?: boolean;
   };
   status: string;
   timestamp: number;
@@ -107,8 +108,13 @@ export function mapSwapEventToIntentThreatPayload(
   const isCritical = riskScore >= 0.7;
   const color = colorForRisk(riskScore);
 
+  const signerForVerification =
+    event.signature.signer ??
+    event.signature.payload?.signer ??
+    riskPayload?.signer;
+
   const verification = verifyEip712Signature(
-    event.signature.payload ?? riskPayload,
+    { ...(event.signature.payload ?? riskPayload), signer: signerForVerification },
     event.signature.signature
   );
   const signatureValid = verification.valid;
