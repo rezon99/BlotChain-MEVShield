@@ -27,12 +27,12 @@ To maximize hackathon impact while preserving existing system architecture, deve
 - **Uniswap Foundation (Continuity Track):**
   - **Focus:** Protecting Uniswap V3 traders from sandwich attacks and mempool exploitation.
   - **Deliverable:** Demonstration of real-time route protection for Uniswap swaps, complete with `FEEDBACK.md` and required developer forms.
-- **ENS (ENSv2 Beta on Sepolia):**
+- **ENS (ENS mainnet resolver; ENSv2 integration planned):**
   - **Focus:** User identity and contract transparency.
   - **Deliverable:** Resolving raw hex addresses (`0x...`) into human-readable ENS names (`trader.eth`) directly above 3D spatial nodes.
 - **Arc / Circle:**
   - **Focus:** Stablecoin-native financial flows.
-  - **Deliverable:** Denominating and settling MEV-protection routing fees natively in USDC on the Arc ecosystem.
+  - **Deliverable:** Denominating and calculating MEV-protection routing fees natively in USDC on the Arc ecosystem (Arc USDC settlement planned).
 
 ## 3. Development Roadmap & Milestones
 

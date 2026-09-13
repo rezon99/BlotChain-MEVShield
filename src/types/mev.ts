@@ -1,3 +1,18 @@
+export interface SignedRiskPayload {
+  poolId: string;
+  expectedLpLoss: number;
+  expectedLeakage: number;
+  toxicityScore: number;      // integer, scaled x10000 by PayloadBuilder
+  recommendedSpread: number;
+  settlementToken: string;
+  settlementAmount: number;
+  destinationDomain: number;
+  recipient: string;
+  expiry: number;
+  nonce: number;
+  signer: string;
+}
+
 export type ThreatNodeType = 'WALLET' | 'DEX_POOL' | 'ROUTER' | 'VALIDATOR' | 'TRANSACTION' | 'CONTRACT' | string;
 
 export interface ThreatNode {

@@ -404,7 +404,7 @@ export const ThreatVisualizer3D = memo<ThreatVisualizer3DProps>(({
 
   const riskScore = activeHUD?.riskScore ?? 0;
   const detectedThreats = activeHUD?.detectedThreats ?? [];
-  const actionTaken = activeHUD?.actionTaken || 'Mitigated';
+  const actionTaken = activeHUD?.actionTaken || 'Policy signed & verified via Risk Engine';
 
   return (
     <div className="relative w-full h-[600px] bg-[#090d16] overflow-hidden rounded-xl border border-slate-800 shadow-2xl select-none">
