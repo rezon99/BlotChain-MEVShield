@@ -19,11 +19,11 @@ function safeAddress(addr: string | undefined): string {
 }
 
 export function verifyEip712Signature(
-  rawPayload: Record<string, any>,
+  rawPayload: Record<string, unknown>,
   signatureString?: string
 ): VerifySignatureResult {
   try {
-    const signature = signatureString || rawPayload?.signature || rawPayload?.sig;
+    const signature = signatureString || (rawPayload?.signature as string) || (rawPayload?.sig as string);
     if (!signature || typeof signature !== 'string') {
       return { valid: false, recovered: null, reason: 'Missing signature string' };
     }
@@ -32,7 +32,7 @@ export function verifyEip712Signature(
       ? String(import.meta.env.VITE_EXPECTED_SIGNER).trim()
       : undefined;
 
-    const expectedSignerRaw = envSigner || rawPayload?.expectedSigner || rawPayload?.signer;
+    const expectedSignerRaw = envSigner || (rawPayload?.expectedSigner as string) || (rawPayload?.signer as string);
 
     if (!envSigner && !rawPayload?.expectedSigner && rawPayload?.signer) {
       console.warn('[verifySignature] VITE_EXPECTED_SIGNER not set — falling back to payload.signer. This is unsafe in production.');
@@ -46,13 +46,13 @@ export function verifyEip712Signature(
 
     const destinationDomain = Number(rawPayload?.destinationDomain || 1);
 
-    const domain = rawPayload?.domain || {
+    const domain = (rawPayload?.domain as Record<string, unknown>) || {
       name: 'MEVShield',
       version: '1',
       chainId: destinationDomain
     };
 
-    const types = rawPayload?.types || {
+    const types = (rawPayload?.types as Record<string, unknown>) || {
       SignedRiskPayload: [
         { name: 'poolId', type: 'address' },
         { name: 'expectedLpLoss', type: 'uint256' },
@@ -68,8 +68,8 @@ export function verifyEip712Signature(
       ]
     };
 
-    const recipient = safeAddress(rawPayload?.recipient);
-    const poolId = safeAddress(rawPayload?.poolId);
+    const recipient = safeAddress(rawPayload?.recipient as string);
+    const poolId = safeAddress(rawPayload?.poolId as string);
 
     const message = {
       poolId,
@@ -105,11 +105,12 @@ export function verifyEip712Signature(
       recovered,
       reason: matches ? undefined : `Recovered address ${recovered} does not match expected signer ${expectedSigner}`
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
     return {
       valid: false,
       recovered: null,
-      reason: `Verification failed: ${err?.message || String(err)}`
+      reason: `Verification failed: ${errorMsg}`
     };
   }
 }

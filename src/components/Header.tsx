@@ -9,8 +9,8 @@ interface HeaderProps {
   onOpenSettings: () => void;
   selectedCount: number;
   onClearSelection: () => void;
-  viewMode?: '2d' | '3d' | 'vr' | 'threat3d';
-  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr' | 'threat3d') => void;
+  viewMode?: '2d' | '3d' | 'vr' | 'threat3d' | 'city';
+  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr' | 'threat3d' | 'city') => void;
   onOpenGuide?: () => void;
   onStartTour?: () => void;
   defaultCollapsed?: boolean;
@@ -38,18 +38,18 @@ export const Header: React.FC<HeaderProps> = React.memo(({
 
           {onViewModeSwitch && (
             <div className="flex bg-slate-800/90 p-0.5 rounded-lg border border-slate-700/60 text-[10px] sm:text-xs font-bold gap-0.5 ml-1">
-              {(['2d', '3d', 'vr', 'threat3d'] as const).map(vm => (
+              {(['2d', '3d', 'vr', 'threat3d', 'city'] as const).map(vm => (
                 <button
                   key={vm}
                   onClick={() => onViewModeSwitch(vm)}
                   className={`px-2 py-0.5 rounded uppercase transition-all ${
                     viewMode === vm
-                      ? vm === 'threat3d' ? 'bg-red-600 text-white shadow' : 'bg-indigo-600 text-white shadow'
+                      ? vm === 'threat3d' ? 'bg-red-600 text-white shadow' : vm === 'city' ? 'bg-emerald-600 text-white shadow' : 'bg-indigo-600 text-white shadow'
                       : 'text-gray-400 hover:text-white'
                   }`}
-                  title={`Switch to ${vm === 'threat3d' ? 'Threat 3D' : vm.toUpperCase()} view`}
+                  title={`Switch to ${vm === 'threat3d' ? 'Threat 3D' : vm === 'city' ? 'City 3D' : vm.toUpperCase()} view`}
                 >
-                  {vm === 'threat3d' ? 'THREAT 3D' : vm}
+                  {vm === 'threat3d' ? 'THREAT 3D' : vm === 'city' ? 'CITY 3D' : vm}
                 </button>
               ))}
             </div>
@@ -163,6 +163,15 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               >
                 <span className="text-[10px] bg-red-950/80 border border-red-500/40 text-red-300 px-1 py-0.5 rounded font-mono">MEV</span>
                 THREAT 3D
+              </button>
+              <button
+                onClick={() => onViewModeSwitch('city')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                  viewMode === 'city' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' : 'text-emerald-400 hover:text-emerald-200 hover:bg-slate-800'
+                }`}
+              >
+                <span className="text-[10px] bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 px-1 py-0.5 rounded font-mono">CITY</span>
+                CITY 3D
               </button>
             </div>
           )}

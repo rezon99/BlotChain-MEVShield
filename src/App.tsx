@@ -3,12 +3,13 @@ import { Dashboard } from './components/Dashboard';
 import { Dashboard3D } from './components/Dashboard3D';
 import { DashboardVR } from './components/DashboardVR';
 import { ThreatDashboard } from './components/ThreatDashboard';
+import { CityDashboard } from './components/CityDashboard';
 import { UserGuideModal } from './components/UserGuideModal';
 import { OnboardingTour } from './components/OnboardingTour';
 import { DashboardMode } from './types';
 
 function App() {
-  const [viewMode, setViewMode] = useState<'2d' | '3d' | 'vr' | 'threat3d'>('threat3d');
+  const [viewMode, setViewMode] = useState<'2d' | '3d' | 'vr' | 'threat3d' | 'city'>('threat3d');
   const [mode, setMode] = useState<DashboardMode>('crypto');
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
@@ -22,6 +23,15 @@ function App() {
         <DashboardVR
           mode={mode}
           onModeSwitch={setMode}
+          onViewModeSwitch={setViewMode}
+          onOpenGuide={handleOpenGuide}
+          onStartTour={handleStartTour}
+        />
+      ) : viewMode === 'city' ? (
+        <CityDashboard
+          mode={mode}
+          onModeSwitch={setMode}
+          viewMode={viewMode}
           onViewModeSwitch={setViewMode}
           onOpenGuide={handleOpenGuide}
           onStartTour={handleStartTour}
